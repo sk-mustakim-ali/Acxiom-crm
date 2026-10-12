@@ -242,6 +242,14 @@ public class AdminController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        var stampResult = await _userManager.UpdateSecurityStampAsync(user);
+        if (!stampResult.Succeeded)
+        {
+            await transaction.RollbackAsync();
+            AddIdentityErrors(stampResult);
+            return RedirectToAction(nameof(Index));
+        }
+
         await AddAuditAsync("ChangeUserRole", user.Id, $"roles={oldRoleDetail}", $"role={role}");
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
@@ -282,6 +290,14 @@ public class AdminController : Controller
         {
             await transaction.RollbackAsync();
             AddIdentityErrors(updateResult);
+            return RedirectToAction(nameof(Index));
+        }
+
+        var stampResult = await _userManager.UpdateSecurityStampAsync(user);
+        if (!stampResult.Succeeded)
+        {
+            await transaction.RollbackAsync();
+            AddIdentityErrors(stampResult);
             return RedirectToAction(nameof(Index));
         }
 
@@ -333,27 +349,6 @@ public class AdminController : Controller
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
         TempData["StatusMessage"] = "The account was unlocked.";
-        return RedirectToAction(nameof(Index));
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> GeneratePasswordResetToken(string id)
-    {
-        var user = await _userManager.FindByIdAsync(id);
-        if (user == null)
-        {
-            return NotFound();
-        }
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        await AddAuditAsync("GeneratePasswordResetToken", user.Id, null, "password reset token generated");
-        await _context.SaveChangesAsync();
-        await transaction.CommitAsync();
-
-        TempData["ResetToken"] = token;
-        TempData["ResetTokenUser"] = user.Email ?? user.UserName ?? "the selected user";
         return RedirectToAction(nameof(Index));
     }
 

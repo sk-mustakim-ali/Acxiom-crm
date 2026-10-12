@@ -88,9 +88,16 @@ public class DashboardController : Controller
         var lostOpportunities = await opportunities.CountAsync(opportunity => opportunity.Status == "Lost");
         var pipelineValues = await opportunities
             .Where(opportunity => opportunity.Status == "Open")
-            .Select(opportunity => new { opportunity.Amount, opportunity.Probability })
+            .Select(opportunity => new Opportunity
+            {
+                Amount = opportunity.Amount,
+                Probability = opportunity.Probability,
+                Status = opportunity.Status
+            })
             .ToListAsync();
-        var totalPipelineValue = pipelineValues.Sum(opportunity => opportunity.Amount * opportunity.Probability / 100m);
+        var pipelineTotals = CrmWorkflowRules.CalculatePipelineValues(pipelineValues);
+        var totalPipelineValue = pipelineTotals.OpenValue;
+        var weightedPipelineValue = pipelineTotals.WeightedValue;
         var pendingFollowUps = await followUps.CountAsync(followUp =>
             followUp.Status == "Planned" && followUp.FollowUpDate >= DateTime.Today);
 
@@ -138,6 +145,7 @@ public class DashboardController : Controller
             LostOpportunities = lostOpportunities,
             PendingFollowUps = pendingFollowUps,
             TotalPipelineValue = totalPipelineValue,
+            WeightedPipelineValue = weightedPipelineValue,
             FromDate = fromDate,
             ToDate = toDate,
             Period = period,

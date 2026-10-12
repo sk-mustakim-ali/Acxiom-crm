@@ -31,7 +31,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Customer>().Property(c => c.Email).UseCollation("NOCASE");
         builder.Entity<Customer>().HasIndex(c => c.Email).IsUnique();
-        builder.Entity<Customer>().HasIndex(c => c.Phone).IsUnique();
+        builder.Entity<Customer>().HasIndex(c => c.NormalizedEmail).IsUnique();
+        builder.Entity<Customer>().HasIndex(c => c.NormalizedPhone).IsUnique();
+        builder.Entity<Customer>().HasIndex(c => c.CustomerCode).IsUnique();
+        builder.Entity<Lead>().HasIndex(l => l.LeadCode).IsUnique();
+        builder.Entity<Lead>().HasIndex(l => l.NormalizedEmail).IsUnique().HasFilter("\"NormalizedEmail\" IS NOT NULL");
+        builder.Entity<Lead>().HasIndex(l => l.NormalizedPhone).IsUnique().HasFilter("\"NormalizedPhone\" IS NOT NULL");
         builder.Entity<Lead>().Property(l => l.ExpectedValue).HasColumnType("decimal(18,2)");
         builder.Entity<Opportunity>().Property(o => o.Amount).HasColumnType("decimal(18,2)");
     }

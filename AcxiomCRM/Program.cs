@@ -75,12 +75,19 @@ builder.Services.ConfigureApplicationCookie(options =>
     };
 });
 
+// Refresh the principal on each request so deactivation and role changes take
+// effect for existing sessions immediately, rather than after Identity's
+// default 30-minute validation interval.
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    options.ValidationInterval = TimeSpan.Zero);
+
 builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new Microsoft.AspNetCore.Mvc.AutoValidateAntiforgeryTokenAttribute());
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CrmAccessScope>();
+builder.Services.AddScoped<LeadConversionService>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -129,3 +136,5 @@ app.MapControllerRoute(
 app.MapRazorPages();
 
 app.Run();
+
+public partial class Program { }

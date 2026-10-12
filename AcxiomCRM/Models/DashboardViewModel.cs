@@ -11,6 +11,7 @@ public class DashboardViewModel
     public int LostOpportunities { get; set; }
     public int PendingFollowUps { get; set; }
     public decimal TotalPipelineValue { get; set; }
+    public decimal WeightedPipelineValue { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
     public string Period { get; set; } = "all";

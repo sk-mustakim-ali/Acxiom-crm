@@ -11,9 +11,11 @@ Run the application locally as described below. A development database and its a
 - [Roles and access](#roles-and-access)
 - [Typical CRM workflow](#typical-crm-workflow)
 - [Run locally](#run-locally)
+- [Run automated tests](#run-automated-tests)
 - [First sign-in and user setup](#first-sign-in-and-user-setup)
 - [HTTP API](#http-api)
 - [Validation and security](#validation-and-security)
+- [Database updates](#database-updates)
 - [Project structure](#project-structure)
 - [Assignment feature checklist](#assignment-feature-checklist)
 - [Limitations and implementation notes](#limitations-and-implementation-notes)
@@ -22,13 +24,13 @@ Run the application locally as described below. A development database and its a
 
 | Area | Purpose |
 |---|---|
-| Dashboard | Summarizes customers, leads, opportunities, pipeline value, and pending follow-ups. Choose a reporting period or a custom date range. Charts show lead status, opportunity stages, and closed-won sales by month. |
+| Dashboard | Summarizes customers, leads, opportunities, open pipeline value, weighted pipeline value, and pending follow-ups. Choose a reporting period or a custom date range. Charts show lead status, opportunity stages, and closed-won sales by month. |
 | Customers | Create, search, filter, inspect, and update customer accounts, including contact/company details, status, and owner. Deactivation retains the record as inactive rather than deleting it. |
 | Leads | Track prospects, source, priority, expected value, status, notes, and assigned Sales Executive. Search/filter the list, inspect lead details, and convert a qualified lead into a customer. |
-| Opportunities | Link a potential sale to a customer (and optionally a lead), manage its amount, probability, stage, owner, and expected close date, and record Won or Lost outcomes. |
-| Follow-ups | Schedule calls, meetings, emails, and tasks, link them to a customer, lead, or opportunity, assign them, and track planned/completed/missed/cancelled status. |
+| Opportunities | Link a potential sale to a customer (and optionally a lead), record its source, amount, probability, stage, owner, and expected close date, and record Won or Lost outcomes. |
+| Follow-ups | Schedule calls, meetings, emails, and tasks, link them to a customer, lead, or opportunity, assign them, filter upcoming and overdue items, and track planned/completed/missed/cancelled status. |
 | Activities | Record calls, meetings, emails, or tasks against a customer or lead. Filter by date, status, type, and assignee; update or remove activities that you can access. |
-| User management | Admins can create users, assign one of the application roles, activate/deactivate accounts, unlock accounts, and generate password-reset tokens. |
+| User management | Admins can create users, assign one of the application roles, activate/deactivate accounts, and unlock accounts. A password-reset delivery workflow is not configured. |
 | Reports | View scoped customer, lead, follow-up, opportunity, pipeline, conversion, user-activity, and audit reports. Management reports support date or assignee filters where relevant. |
 | Audit log | Review recorded authentication events and changes to CRM records and user accounts. Access to sensitive values and network information is restricted to Admins. |
 | HTTP API | Use authenticated JSON endpoints for login/logout, customers, leads, opportunities, follow-ups, and pipeline data. |
@@ -118,7 +120,18 @@ With the included `http` launch profile, browse to **http://localhost:5222**. To
 dotnet run --no-launch-profile --urls http://localhost:5088
 ```
 
-The first startup applies pending Entity Framework Core migrations and creates the built-in roles. The configured bootstrap Admin is created if it does not yet exist. Keep the terminal running while using the site; stop the application with **Ctrl+C**.
+The first startup applies pending Entity Framework Core migrations and creates the built-in roles. The configured bootstrap Admin is created if it does not yet exist. Startup migration behavior is suitable for local development; back up production data and review migrations before deployment. Keep the terminal running while using the site; stop the application with **Ctrl+C**.
+
+### Run automated tests
+
+From the repository root, restore and run the xUnit workflow and API integration tests:
+
+```powershell
+dotnet restore .\AcxiomCRM.Tests\AcxiomCRM.Tests.csproj
+dotnet test .\AcxiomCRM.Tests\AcxiomCRM.Tests.csproj
+```
+
+The integration-test host uses an isolated temporary SQLite database; it does not use the development `AcxiomCRM/app.db` file.
 
 ### Database
 
@@ -136,7 +149,7 @@ dotnet run
 - On a **fresh checkout**, configure both `BootstrapAdmin:Email` and `BootstrapAdmin:Password` before the first run. There is deliberately no universal default administrator password in source control.
 - If both bootstrap settings are omitted, public registration can create a Sales Executive account, but registration does not create an Admin.
 - The already-running local demonstration at `http://localhost:5088` uses a pre-existing local development account. Use the sign-in details provided with that running instance; they are not credentials for a clean checkout.
-- Use **User Management** to create Manager/Sales Executive accounts, change roles, activate/deactivate users, unlock accounts, or generate password-reset tokens.
+- Use **User Management** to create Manager/Sales Executive accounts, change roles, activate/deactivate users, and unlock accounts. Password resets require a separately configured secure delivery workflow.
 
 For production, supply secrets from an appropriate secret manager or protected environment variables. Do not commit credentials, share development passwords, or reuse a demo password for real data.
 
@@ -173,6 +186,8 @@ The API validates request DTOs, workflow states, assignments, and references to 
 - Forms use antiforgery validation. API write operations also require antiforgery tokens because authentication uses cookies.
 - User/role administration and audit screens use role authorization. Business record queries and related-record selectors apply server-side ownership/access scoping.
 - Controllers validate record ownership, active assignees, required related records, allowed statuses, and stage transitions before saving.
+- Normalized email and phone values enforce duplicate-contact checks across case and formatting differences. Lead conversion saves its customer, status update, and audit events as one transaction.
+- Admin role and account activation changes invalidate existing sign-in cookies so old permissions cannot remain in use.
 - Audit events are written for authentication and tracked CRM/user-management changes.
 - Set up a unique bootstrap Admin secret per environment; use HTTPS and protect production database files and backups.
 
@@ -189,6 +204,7 @@ AcxiomCRM/
 |-- Views/                         Razor pages for CRM, admin, reports, and shared UI
 |-- wwwroot/                       CSS, JavaScript, and static assets
 `-- docs/screenshots/              README screenshots of the running UI
+AcxiomCRM.Tests/                   xUnit workflow and authenticated API integration tests
 ```
 
 ## Assignment feature checklist
@@ -197,24 +213,29 @@ AcxiomCRM/
 - [x] Customer, lead, opportunity, follow-up, and activity MVC workflows with server-side access checks.
 - [x] Lead qualification/conversion, opportunity stages, and follow-up scheduling/status rules.
 - [x] Dashboard KPIs, date-period selection, charts, and scoped record queries.
-- [x] Admin user creation, role changes, activation/deactivation, unlock, and reset-token generation.
+- [x] Admin user creation, role changes, activation/deactivation, and unlock.
 - [x] Authentication and CRM audit records, plus customer/lead/follow-up/opportunity/pipeline/conversion/user-activity reports.
 - [x] Authenticated DTO-based customer, lead, opportunity, follow-up, and pipeline API routes.
-- [x] SQLite migrations applied automatically at application startup.
-- [ ] Opportunity records do not include the specified source field.
-- [ ] Follow-up screens do not distinguish overdue items or send reminders/notifications.
-- [ ] Several reports omit specified dimensions/filters: pipeline is not owner-grouped; the lead report omits source and conversion details; audit filtering by user and report-wide filtering/export are incomplete.
+- [x] SQLite migrations are applied automatically at application startup; the local database is excluded from source control.
+- [x] Opportunity records include a source field in MVC, API, and reports.
+- [x] Follow-up lists distinguish upcoming and overdue items; reminder/notification delivery is not configured.
+- [x] Pipeline reports include owner-grouped open and weighted values; lead reports include source and conversion state.
+- [ ] Audit filtering by user and report-wide filtering/export are incomplete.
 - [ ] List views provide search/filtering but do not provide consistent sorting and pagination.
 - [ ] Manager data is not team-scoped: no team hierarchy is modeled, so managers see organization-wide records.
 - [ ] User administration does not edit user profile details such as name/email after creation.
-- [ ] The reset-token feature has no email provider/delivery workflow.
+- [ ] Password reset is not implemented because no secure token delivery provider is configured.
 - [ ] API routes are listed, but full request/response schemas and a consistent error-response catalogue are not documented.
-- [ ] No automated acceptance-test suite is included. Selected validation, API CRUD/audit, and role-scope scenarios were checked manually against a disposable local database.
+- [x] Automated xUnit workflow and API integration tests cover validation, transitions, scoping, duplicate contacts, conversion auditing, API authorization/antiforgery, and account cookie invalidation.
 
 ## Limitations and implementation notes
 
 - A distinct team hierarchy is not represented in the current data model. Managers therefore have organization-wide business-record visibility.
 - Activity management is provided by MVC screens; it does not currently have separate REST API routes.
-- Password-reset token generation is an administrative operation. Delivering reset links to end users requires an email provider, which is not configured in this project.
+- Password reset requires an email or other secure delivery provider; none is configured, so the application does not generate or display reset tokens.
 - Charts and reports reflect the records in the current database and the signed-in user's authorized scope. New databases are empty apart from Identity roles and configured users.
-- Screenshots document only the verified dashboard, customer, lead, and opportunity screens; other module captures are omitted until valid images are available. They ar'nt seeded sample data and do not imply a populated database on a fresh install.
+- Screenshots document only the verified dashboard, customer, lead, and opportunity screens; other module captures are omitted until valid images are available. They are not seeded sample data and do not imply a populated database on a fresh install.
+
+## Database updates
+
+Two migrations add opportunity source and normalized contact fields. Existing customer and lead contact values are backfilled before unique normalized indexes are created; the opportunity source defaults to `Other` for existing records. If legacy data contains email or phone values that become duplicates after normalization, review and resolve those duplicates before applying the contact migration. The repository's local development database is not migrated by the automated tests.

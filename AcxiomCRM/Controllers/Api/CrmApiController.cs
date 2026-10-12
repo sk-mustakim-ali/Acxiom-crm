@@ -51,7 +51,9 @@ public sealed class CrmApiController : ControllerBase
             CustomerCode = CreateCode("CUS-"),
             CustomerName = request.CustomerName.Trim(),
             Email = request.Email.Trim(),
+            NormalizedEmail = CrmContactNormalization.NormalizeEmail(request.Email),
             Phone = request.Phone.Trim(),
+            NormalizedPhone = CrmContactNormalization.NormalizePhone(request.Phone),
             CompanyName = request.CompanyName.Trim(),
             Status = NormalizeChoice(request.Status, CrmWorkflowRules.CustomerStatuses),
             Address = request.Address?.Trim(),
@@ -70,7 +72,15 @@ public sealed class CrmApiController : ControllerBase
             return validation;
         }
 
-        await SaveWithAuditAsync(customer, "Create", "Customer", null, customer.CustomerName);
+        try
+        {
+            await SaveWithAuditAsync(customer, "Create", "Customer", null,
+                $"Name={customer.CustomerName}; Status={customer.Status}; Owner={customer.OwnerId}");
+        }
+        catch (DbUpdateException exception) when (CrmContactNormalization.IsUniqueConstraintViolation(exception))
+        {
+            return Conflict(new { message = "A customer with this email or phone already exists." });
+        }
         return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, ToDto(customer));
     }
 
@@ -91,7 +101,9 @@ public sealed class CrmApiController : ControllerBase
         var oldName = customer.CustomerName;
         customer.CustomerName = request.CustomerName.Trim();
         customer.Email = request.Email.Trim();
+        customer.NormalizedEmail = CrmContactNormalization.NormalizeEmail(request.Email);
         customer.Phone = request.Phone.Trim();
+        customer.NormalizedPhone = CrmContactNormalization.NormalizePhone(request.Phone);
         customer.CompanyName = request.CompanyName.Trim();
         customer.Status = NormalizeChoice(request.Status, CrmWorkflowRules.CustomerStatuses);
         if (CanManageAssignments && request.OwnerId != customer.OwnerId)
@@ -112,7 +124,14 @@ public sealed class CrmApiController : ControllerBase
             return validation;
         }
 
-        await SaveWithAuditAsync(customer, "Update", "Customer", oldName, customer.CustomerName);
+        try
+        {
+            await SaveWithAuditAsync(customer, "Update", "Customer", oldName, customer.CustomerName);
+        }
+        catch (DbUpdateException exception) when (CrmContactNormalization.IsUniqueConstraintViolation(exception))
+        {
+            return Conflict(new { message = "A customer with this email or phone already exists." });
+        }
         return Ok(ToDto(customer));
     }
 
@@ -166,7 +185,9 @@ public sealed class CrmApiController : ControllerBase
             LeadName = request.LeadName.Trim(),
             CompanyName = request.CompanyName.Trim(),
             Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+            NormalizedEmail = string.IsNullOrWhiteSpace(request.Email) ? null : CrmContactNormalization.NormalizeEmail(request.Email),
             Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+            NormalizedPhone = string.IsNullOrWhiteSpace(request.Phone) ? null : CrmContactNormalization.NormalizePhone(request.Phone),
             Source = request.Source.Trim(),
             Status = "New",
             Priority = request.Priority.Trim(),
@@ -180,8 +201,22 @@ public sealed class CrmApiController : ControllerBase
             return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Assign the lead to an active Sales Executive.");
         }
 
+        var leadConflict = await ValidateLeadDuplicatesAsync(lead);
+        if (leadConflict != null)
+        {
+            return Conflict(new { message = leadConflict });
+        }
+
         _context.Leads.Add(lead);
-        await SaveWithAuditAsync(lead, "Create", "Lead", null, lead.LeadName);
+        try
+        {
+            await SaveWithAuditAsync(lead, "Create", "Lead", null,
+                $"Name={lead.LeadName}; Status={lead.Status}; Owner={lead.AssignedToId}; Source={lead.Source}");
+        }
+        catch (DbUpdateException exception) when (CrmContactNormalization.IsUniqueConstraintViolation(exception))
+        {
+            return Conflict(new { message = "A lead with this email or phone already exists." });
+        }
         return CreatedAtAction(nameof(GetLead), new { id = lead.Id }, ToDto(lead));
     }
 
@@ -210,7 +245,9 @@ public sealed class CrmApiController : ControllerBase
         lead.LeadName = request.LeadName.Trim();
         lead.CompanyName = request.CompanyName.Trim();
         lead.Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+        lead.NormalizedEmail = string.IsNullOrWhiteSpace(request.Email) ? null : CrmContactNormalization.NormalizeEmail(request.Email);
         lead.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        lead.NormalizedPhone = string.IsNullOrWhiteSpace(request.Phone) ? null : CrmContactNormalization.NormalizePhone(request.Phone);
         lead.Source = request.Source.Trim();
         lead.Status = request.Status;
         lead.Priority = request.Priority.Trim();
@@ -226,7 +263,21 @@ public sealed class CrmApiController : ControllerBase
             lead.AssignedToId = request.AssignedToId;
         }
 
-        await SaveWithAuditAsync(lead, "Update", "Lead", oldName, lead.LeadName);
+        var leadConflict = await ValidateLeadDuplicatesAsync(lead, id);
+        if (leadConflict != null)
+        {
+            return Conflict(new { message = leadConflict });
+        }
+
+        try
+        {
+            await SaveWithAuditAsync(lead, "Update", "Lead", oldName,
+                $"Name={lead.LeadName}; Status={lead.Status}; Owner={lead.AssignedToId}; Source={lead.Source}; ExpectedValue={lead.ExpectedValue}");
+        }
+        catch (DbUpdateException exception) when (CrmContactNormalization.IsUniqueConstraintViolation(exception))
+        {
+            return Conflict(new { message = "A lead with this email or phone already exists." });
+        }
         return Ok(ToDto(lead));
     }
 
@@ -256,6 +307,7 @@ public sealed class CrmApiController : ControllerBase
                 CustomerId = opportunity.CustomerId,
                 CustomerName = opportunity.Customer == null ? null : opportunity.Customer.CustomerName,
                 Stage = opportunity.Stage,
+                Source = opportunity.Source,
                 Amount = opportunity.Amount,
                 Probability = opportunity.Probability,
                 ExpectedCloseDate = opportunity.ExpectedCloseDate,
@@ -297,6 +349,7 @@ public sealed class CrmApiController : ControllerBase
             LeadId = request.LeadId,
             Amount = request.Amount,
             Stage = request.Stage,
+            Source = request.Source.Trim(),
             Probability = request.Probability,
             ExpectedCloseDate = request.ExpectedCloseDate.Date,
             Status = request.Status,
@@ -345,6 +398,7 @@ public sealed class CrmApiController : ControllerBase
         opportunity.LeadId = request.LeadId;
         opportunity.Amount = request.Amount;
         opportunity.Stage = request.Stage;
+        opportunity.Source = request.Source.Trim();
         opportunity.Probability = request.Probability;
         opportunity.ExpectedCloseDate = request.ExpectedCloseDate.Date;
         opportunity.Status = request.Status;
@@ -502,20 +556,32 @@ public sealed class CrmApiController : ControllerBase
             return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Select a valid customer status.");
         }
 
-        if (!CrmWorkflowRules.CustomerStatuses.Contains(customer.Status, StringComparer.OrdinalIgnoreCase))
-        {
-            return Problem(statusCode: StatusCodes.Status400BadRequest, title: "Select a valid customer status.");
-        }
-
         if (await _context.Customers.AnyAsync(item => item.Id != excludeId
-            && item.Email.ToLower() == customer.Email.ToLower()))
+            && item.NormalizedEmail == customer.NormalizedEmail))
         {
             return Conflict(new { message = "Customer email already exists." });
         }
 
-        if (await _context.Customers.AnyAsync(item => item.Id != excludeId && item.Phone == customer.Phone))
+        if (await _context.Customers.AnyAsync(item => item.Id != excludeId && item.NormalizedPhone == customer.NormalizedPhone))
         {
             return Conflict(new { message = "Customer phone already exists." });
+        }
+
+        return null;
+    }
+
+    private async Task<string?> ValidateLeadDuplicatesAsync(Lead lead, int? excludeId = null)
+    {
+        if (lead.NormalizedEmail != null && await _context.Leads.AnyAsync(item =>
+                item.Id != excludeId && item.NormalizedEmail == lead.NormalizedEmail))
+        {
+            return "A lead with this email already exists.";
+        }
+
+        if (lead.NormalizedPhone != null && await _context.Leads.AnyAsync(item =>
+                item.Id != excludeId && item.NormalizedPhone == lead.NormalizedPhone))
+        {
+            return "A lead with this phone already exists.";
         }
 
         return null;
@@ -623,6 +689,7 @@ public sealed class CrmApiController : ControllerBase
         CompanyName = lead.CompanyName,
         Email = lead.Email,
         Phone = lead.Phone,
+        Source = lead.Source,
         Status = lead.Status,
         Priority = lead.Priority,
         ExpectedValue = lead.ExpectedValue,
@@ -637,6 +704,7 @@ public sealed class CrmApiController : ControllerBase
         CustomerId = opportunity.CustomerId,
         CustomerName = customerName ?? opportunity.Customer?.CustomerName,
         Stage = opportunity.Stage,
+        Source = opportunity.Source,
         Amount = opportunity.Amount,
         Probability = opportunity.Probability,
         ExpectedCloseDate = opportunity.ExpectedCloseDate,

@@ -2,8 +2,6 @@
 
 @{
     ViewData["Title"] = "User Management";
-    var resetToken = TempData["ResetToken"] as string;
-    var resetTokenUser = TempData["ResetTokenUser"] as string;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -21,14 +19,6 @@
 @if (TempData["ErrorMessage"] is string errorMessage)
 {
     <div class="alert alert-danger" role="alert">@errorMessage</div>
-}
-@if (!string.IsNullOrEmpty(resetToken))
-{
-    <div class="alert alert-warning" role="alert">
-        <strong>One-time password reset token for @resetTokenUser</strong>
-        <p class="mb-1">Share this token securely with the user. It is shown only once and is not included in audit details.</p>
-        <code class="user-select-all text-break">@resetToken</code>
-    </div>
 }
 
 <form asp-action="Index" method="get" class="row g-2 mb-3">
@@ -133,10 +123,6 @@
                                     <button type="submit" class="btn btn-sm btn-outline-warning">Unlock</button>
                                 </form>
                             }
-                            <form asp-action="GeneratePasswordResetToken" method="post">
-                                <input type="hidden" name="id" value="@user.Id" />
-                                <button type="submit" class="btn btn-sm btn-outline-secondary">Generate reset token</button>
-                            </form>
                         </div>
                     </div>
                 </td>

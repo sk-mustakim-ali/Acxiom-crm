@@ -18,10 +18,14 @@ public class Lead
     [StringLength(150)]
     public string? Email { get; set; }
 
+    public string? NormalizedEmail { get; set; }
+
     [Phone]
     [RegularExpression(@"^(?=(?:\D*\d){7,15}\D*$)\+?[0-9][0-9(). -]*$", ErrorMessage = "Enter a valid phone number.")]
     [StringLength(20)]
     public string? Phone { get; set; }
+
+    public string? NormalizedPhone { get; set; }
 
     [Required]
     [StringLength(150)]

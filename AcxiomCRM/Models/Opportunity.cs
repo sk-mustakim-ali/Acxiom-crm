@@ -36,6 +36,10 @@ public class Opportunity
     [StringLength(30)]
     public string Status { get; set; } = "Open";
 
+    [Required]
+    [StringLength(50)]
+    public string Source { get; set; } = "Other";
+
     public string? OwnerId { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;

@@ -13,11 +13,13 @@ public class LeadController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly CrmAccessScope _accessScope;
+    private readonly LeadConversionService _conversionService;
 
-    public LeadController(ApplicationDbContext context, CrmAccessScope accessScope)
+    public LeadController(ApplicationDbContext context, CrmAccessScope accessScope, LeadConversionService conversionService)
     {
         _context = context;
         _accessScope = accessScope;
+        _conversionService = conversionService;
     }
 
     public async Task<IActionResult> Index(string? status, string? search, string? assignedTo)
@@ -107,9 +109,16 @@ public class LeadController : Controller
         lead.CompanyName = lead.CompanyName.Trim();
         lead.Email = string.IsNullOrWhiteSpace(lead.Email) ? null : lead.Email.Trim();
         lead.Phone = string.IsNullOrWhiteSpace(lead.Phone) ? null : lead.Phone.Trim();
-        if (!string.IsNullOrWhiteSpace(lead.Email) && await _context.Leads.AnyAsync(l => l.Email != null && l.Email.ToLower() == lead.Email.Trim().ToLower()))
+        lead.NormalizedEmail = string.IsNullOrWhiteSpace(lead.Email) ? null : CrmContactNormalization.NormalizeEmail(lead.Email);
+        lead.NormalizedPhone = string.IsNullOrWhiteSpace(lead.Phone) ? null : CrmContactNormalization.NormalizePhone(lead.Phone);
+        if (lead.NormalizedEmail != null && await _context.Leads.AnyAsync(item => item.NormalizedEmail == lead.NormalizedEmail))
         {
             ModelState.AddModelError(nameof(Lead.Email), "Lead email is already in use.");
+            return View(lead);
+        }
+        if (lead.NormalizedPhone != null && await _context.Leads.AnyAsync(item => item.NormalizedPhone == lead.NormalizedPhone))
+        {
+            ModelState.AddModelError(nameof(Lead.Phone), "Lead phone is already in use.");
             return View(lead);
         }
 
@@ -126,9 +135,21 @@ public class LeadController : Controller
         lead.LeadCode = "LEAD-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpperInvariant();
         lead.Notes ??= string.Empty;
 
-        _context.Leads.Add(lead);
-        await _context.SaveChangesAsync();
-        await LogAuditAsync("Create", "Lead", lead.Id, null, lead.LeadName);
+        await using var createTransaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            _context.Leads.Add(lead);
+            await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "Lead", lead.Id, null,
+                $"Name={lead.LeadName}; Status={lead.Status}; Owner={lead.AssignedToId}; Source={lead.Source}");
+            await createTransaction.CommitAsync();
+        }
+        catch (DbUpdateException exception) when (CrmContactNormalization.IsUniqueConstraintViolation(exception))
+        {
+            await createTransaction.RollbackAsync();
+            ModelState.AddModelError(string.Empty, "A lead with this email or phone already exists.");
+            return View(lead);
+        }
         return RedirectToAction(nameof(Index));
     }
 
@@ -202,12 +223,38 @@ public class LeadController : Controller
         lead.CompanyName = lead.CompanyName.Trim();
         lead.Email = string.IsNullOrWhiteSpace(lead.Email) ? null : lead.Email.Trim();
         lead.Phone = string.IsNullOrWhiteSpace(lead.Phone) ? null : lead.Phone.Trim();
+        lead.NormalizedEmail = string.IsNullOrWhiteSpace(lead.Email) ? null : CrmContactNormalization.NormalizeEmail(lead.Email);
+        lead.NormalizedPhone = string.IsNullOrWhiteSpace(lead.Phone) ? null : CrmContactNormalization.NormalizePhone(lead.Phone);
         lead.LeadCode = existing.LeadCode;
         lead.CreatedDate = existing.CreatedDate;
 
-        _context.Update(lead);
-        await _context.SaveChangesAsync();
-        await LogAuditAsync("Update", "Lead", lead.Id, existing.LeadName, lead.LeadName);
+        if (lead.NormalizedEmail != null && await _context.Leads.AnyAsync(item => item.Id != id && item.NormalizedEmail == lead.NormalizedEmail))
+        {
+            ModelState.AddModelError(nameof(Lead.Email), "Lead email is already in use.");
+            return View(lead);
+        }
+        if (lead.NormalizedPhone != null && await _context.Leads.AnyAsync(item => item.Id != id && item.NormalizedPhone == lead.NormalizedPhone))
+        {
+            ModelState.AddModelError(nameof(Lead.Phone), "Lead phone is already in use.");
+            return View(lead);
+        }
+
+        await using var editTransaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            _context.Update(lead);
+            await _context.SaveChangesAsync();
+            await LogAuditAsync("Update", "Lead", lead.Id,
+                $"Name={existing.LeadName}; Status={existing.Status}; Owner={existing.AssignedToId}; Source={existing.Source}; ExpectedValue={existing.ExpectedValue}",
+                $"Name={lead.LeadName}; Status={lead.Status}; Owner={lead.AssignedToId}; Source={lead.Source}; ExpectedValue={lead.ExpectedValue}");
+            await editTransaction.CommitAsync();
+        }
+        catch (DbUpdateException exception) when (CrmContactNormalization.IsUniqueConstraintViolation(exception))
+        {
+            await editTransaction.RollbackAsync();
+            ModelState.AddModelError(string.Empty, "A lead with this email or phone already exists.");
+            return View(lead);
+        }
 
         return RedirectToAction(nameof(Index));
     }
@@ -237,44 +284,28 @@ public class LeadController : Controller
             return NotFound();
         }
 
-        if (!lead.Status.Equals("Qualified", StringComparison.OrdinalIgnoreCase))
+        var conversion = await _conversionService.ConvertQualifiedLeadAsync(
+            lead,
+            User.FindFirstValue(ClaimTypes.NameIdentifier),
+            User.Identity?.Name,
+            HttpContext.Connection.RemoteIpAddress?.ToString());
+        if (conversion.Status == LeadConversionStatus.NotQualified)
         {
-            return BadRequest("Only qualified leads can be converted.");
+            return BadRequest("Only qualified leads can be converted, and a lead can be converted only once.");
         }
 
-        if (string.IsNullOrWhiteSpace(lead.Email) || string.IsNullOrWhiteSpace(lead.Phone))
+        if (conversion.Status == LeadConversionStatus.MissingContactDetails)
         {
             TempData["ErrorMessage"] = "A lead must have a valid email and phone before conversion.";
-            return RedirectToAction(nameof(Index));
         }
-
-        var email = lead.Email.Trim();
-        var phone = lead.Phone.Trim();
-        if (await _context.Customers.AnyAsync(c => c.Email.ToLower() == email.ToLower() || c.Phone == phone))
+        else if (conversion.Status == LeadConversionStatus.DuplicateCustomer)
         {
             TempData["ErrorMessage"] = "A customer already exists with this lead's email or phone.";
-            return RedirectToAction(nameof(Index));
         }
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-        var customer = new Customer
+        else
         {
-            CustomerCode = "CUS-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(),
-            CustomerName = lead.LeadName,
-            Email = email,
-            Phone = phone,
-            CompanyName = lead.CompanyName,
-            Status = "Active",
-            OwnerId = lead.AssignedToId,
-            CreatedBy = User.Identity?.Name,
-            CreatedDate = DateTime.UtcNow
-        };
-        _context.Customers.Add(customer);
-        lead.Status = "Converted";
-        await _context.SaveChangesAsync();
-        await LogAuditAsync("Convert", "Lead", lead.Id, lead.LeadName, customer.CustomerName);
-        await LogAuditAsync("Create", "Customer", customer.Id, null, customer.CustomerName);
-        await transaction.CommitAsync();
+            TempData["StatusMessage"] = "The lead was converted into a customer.";
+        }
 
         return RedirectToAction(nameof(Index));
     }

@@ -110,6 +110,7 @@ namespace AcxiomCRM.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Description")
+                        .HasMaxLength(2000)
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("LeadId")
@@ -219,6 +220,14 @@ namespace AcxiomCRM.Migrations
                     b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("NormalizedEmail")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedPhone")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("OwnerId")
                         .HasColumnType("TEXT");
 
@@ -238,10 +247,16 @@ namespace AcxiomCRM.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CustomerCode")
+                        .IsUnique();
+
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.HasIndex("Phone")
+                    b.HasIndex("NormalizedEmail")
+                        .IsUnique();
+
+                    b.HasIndex("NormalizedPhone")
                         .IsUnique();
 
                     b.ToTable("Customers");
@@ -339,6 +354,12 @@ namespace AcxiomCRM.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("NormalizedEmail")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedPhone")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
 
@@ -362,6 +383,17 @@ namespace AcxiomCRM.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LeadCode")
+                        .IsUnique();
+
+                    b.HasIndex("NormalizedEmail")
+                        .IsUnique()
+                        .HasFilter("\"NormalizedEmail\" IS NOT NULL");
+
+                    b.HasIndex("NormalizedPhone")
+                        .IsUnique()
+                        .HasFilter("\"NormalizedPhone\" IS NOT NULL");
 
                     b.ToTable("Leads");
                 });
@@ -404,6 +436,11 @@ namespace AcxiomCRM.Migrations
 
                     b.Property<int>("Probability")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Stage")
                         .IsRequired()

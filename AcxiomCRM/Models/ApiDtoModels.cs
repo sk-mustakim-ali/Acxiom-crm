@@ -112,6 +112,10 @@ public class OpportunityCreateRequest
     [StringLength(30)]
     public string Status { get; set; } = "Open";
 
+    [Required]
+    [StringLength(50)]
+    public string Source { get; set; } = "Other";
+
     [StringLength(2000)]
     public string? Notes { get; set; }
     public string? OwnerId { get; set; }
@@ -152,6 +156,7 @@ public class LeadDto
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string Status { get; set; } = string.Empty;
+    public string Source { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;
     public decimal ExpectedValue { get; set; }
     public string? AssignedToId { get; set; }
@@ -165,6 +170,7 @@ public class OpportunityDto
     public int CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string Stage { get; set; } = string.Empty;
+    public string Source { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public int Probability { get; set; }
     public DateTime ExpectedCloseDate { get; set; }

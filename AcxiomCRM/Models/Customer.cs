@@ -19,11 +19,15 @@ public class Customer
     [StringLength(150)]
     public string Email { get; set; } = string.Empty;
 
+    public string NormalizedEmail { get; set; } = string.Empty;
+
     [Required]
     [Phone]
     [RegularExpression(@"^(?=(?:\D*\d){7,15}\D*$)\+?[0-9][0-9(). -]*$", ErrorMessage = "Enter a valid phone number.")]
     [StringLength(20)]
     public string Phone { get; set; } = string.Empty;
+
+    public string NormalizedPhone { get; set; } = string.Empty;
 
     [Required]
     [StringLength(150)]

@@ -20,7 +20,7 @@ public class FollowUpController : Controller
         _accessScope = accessScope;
     }
 
-    public async Task<IActionResult> Index(string? status, DateTime? date, string? search, string? assignedTo)
+    public async Task<IActionResult> Index(string? status, DateTime? date, string? search, string? assignedTo, string? due)
     {
         var query = _accessScope.FollowUps()
             .Include(f => f.Customer)
@@ -31,6 +31,16 @@ public class FollowUpController : Controller
         if (!string.IsNullOrWhiteSpace(status))
         {
             query = query.Where(f => f.Status == status);
+        }
+
+        var today = DateTime.Today;
+        if (string.Equals(due, "overdue", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(f => f.Status == "Planned" && f.FollowUpDate < today);
+        }
+        else if (string.Equals(due, "upcoming", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(f => f.Status == "Planned" && f.FollowUpDate >= today);
         }
 
         if (date.HasValue)
@@ -59,6 +69,11 @@ public class FollowUpController : Controller
             .Where(user => userIds.Contains(user.Id))
             .ToDictionaryAsync(user => user.Id, user => user.FullName);
         ViewBag.AssignedTo = assignedTo;
+        ViewBag.Due = due;
+        ViewBag.OverdueCount = await _accessScope.FollowUps()
+            .CountAsync(f => f.Status == "Planned" && f.FollowUpDate < today);
+        ViewBag.UpcomingCount = await _accessScope.FollowUps()
+            .CountAsync(f => f.Status == "Planned" && f.FollowUpDate >= today);
         if (CanManageAssignments)
         {
             ViewBag.Assignees = await _accessScope.GetActiveUsersAsync();
@@ -178,7 +193,7 @@ public class FollowUpController : Controller
             return View(followUp);
         }
 
-        if (!CanTransitionFollowUp(existing.Status, followUp.Status))
+        if (!CrmWorkflowRules.CanTransitionFollowUp(existing.Status, followUp.Status))
         {
             ModelState.AddModelError(nameof(FollowUp.Status), $"Follow-up status cannot transition from {existing.Status} to {followUp.Status}.");
             return View(followUp);
@@ -267,17 +282,6 @@ public class FollowUpController : Controller
     }
 
     private bool CanManageAssignments => User.IsInRole("Admin") || User.IsInRole("Manager");
-
-    private static bool CanTransitionFollowUp(string current, string next)
-    {
-        if (current.Equals(next, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return current.Equals("Planned", StringComparison.OrdinalIgnoreCase)
-            && CrmWorkflowRules.IsValidFollowUpStatus(next);
-    }
 
     private async Task LogAuditAsync(string action, string entityName, int recordId, string? oldValue, string? newValue)
     {

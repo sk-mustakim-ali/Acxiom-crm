@@ -35,10 +35,12 @@ public class ReportsController : Controller
     public async Task<IActionResult> Leads()
     {
         var leads = await _scope.Leads().AsNoTracking().OrderByDescending(l => l.CreatedDate)
-            .Select(l => new { l.LeadName, l.CompanyName, l.Status, l.ExpectedValue, l.AssignedToId }).ToListAsync();
-        return View("Report", BuildReportAsync("Lead Report", "Lead status, value, and assignment in your permitted business scope.",
-            new[] { "Lead", "Company", "Status", "Expected value", "Assigned to" },
-            leads.Select(l => new[] { l.LeadName, l.CompanyName, l.Status, l.ExpectedValue.ToString("C"), l.AssignedToId ?? "Unassigned" }).ToList(),
+            .Select(l => new { l.LeadName, l.CompanyName, l.Source, l.Status, l.ExpectedValue, l.AssignedToId, l.CreatedDate }).ToListAsync();
+        return View("Report", BuildReportAsync("Lead Report", "Lead source, status, conversion, value, and assignment in your permitted business scope.",
+            new[] { "Lead", "Company", "Source", "Status", "Conversion", "Expected value", "Assigned to", "Created" },
+            leads.Select(l => new[] { l.LeadName, l.CompanyName, l.Source, l.Status,
+                l.Status.Equals("Converted", StringComparison.OrdinalIgnoreCase) ? "Converted" : "Not converted",
+                l.ExpectedValue.ToString("C"), l.AssignedToId ?? "Unassigned", l.CreatedDate.ToString("yyyy-MM-dd") }).ToList(),
             ("Leads", leads.Count.ToString()),
             ("Expected value", leads.Sum(l => l.ExpectedValue).ToString("C"))));
     }
@@ -47,11 +49,16 @@ public class ReportsController : Controller
     {
         var followUps = await _scope.FollowUps().AsNoTracking().Include(f => f.Customer).Include(f => f.Lead).Include(f => f.Opportunity)
             .OrderBy(f => f.FollowUpDate).ToListAsync();
-        return View("Report", BuildReportAsync("Follow-up Report", "Scheduled follow-ups, status, and assignment in your permitted business scope.",
-            new[] { "Subject", "Date", "Type", "Status", "Customer", "Lead", "Opportunity", "Assigned to" },
+        var today = DateTime.Today;
+        var overdueCount = followUps.Count(followUp => CrmWorkflowRules.IsOverdueFollowUp(followUp, today));
+        return View("Report", BuildReportAsync("Follow-up Report", "Scheduled follow-ups, planned state, and assignment in your permitted business scope.",
+            new[] { "Subject", "Date", "Type", "Status", "Due state", "Customer", "Lead", "Opportunity", "Assigned to" },
             followUps.Select(f => new[] { f.Subject, f.FollowUpDate.ToString("yyyy-MM-dd"), f.FollowUpType, f.Status,
+                CrmWorkflowRules.IsOverdueFollowUp(f, today) ? "Overdue" : f.Status == "Planned" ? "Upcoming" : "-",
                 f.Customer?.CustomerName ?? "-", f.Lead?.LeadName ?? "-", f.Opportunity?.OpportunityName ?? "-", f.AssignedToId ?? "Unassigned" }).ToList(),
-            ("Follow-ups", followUps.Count.ToString())));
+            ("Follow-ups", followUps.Count.ToString()),
+            ("Overdue planned", overdueCount.ToString()),
+            ("Completed", followUps.Count(followUp => followUp.Status == "Completed").ToString())));
     }
 
     public async Task<IActionResult> Opportunities()
@@ -59,8 +66,8 @@ public class ReportsController : Controller
         var opportunities = await _scope.Opportunities().AsNoTracking().Include(o => o.Customer)
             .OrderByDescending(o => o.CreatedDate).ToListAsync();
         return View("Report", BuildReportAsync("Opportunity Report", "Opportunity stage, amount, and expected close date in your permitted business scope.",
-            new[] { "Opportunity", "Customer", "Stage", "Status", "Amount", "Probability", "Expected close" },
-            opportunities.Select(o => new[] { o.OpportunityName, o.Customer?.CustomerName ?? "-", o.Stage, o.Status,
+            new[] { "Opportunity", "Customer", "Source", "Stage", "Status", "Amount", "Probability", "Expected close" },
+            opportunities.Select(o => new[] { o.OpportunityName, o.Customer?.CustomerName ?? "-", o.Source, o.Stage, o.Status,
                 o.Amount.ToString("C"), o.Probability + "%", o.ExpectedCloseDate.ToString("yyyy-MM-dd") }).ToList(),
             ("Opportunities", opportunities.Count.ToString()),
             ("Total amount", opportunities.Sum(o => o.Amount).ToString("C"))));
@@ -69,7 +76,7 @@ public class ReportsController : Controller
     public async Task<IActionResult> Pipeline()
     {
         var opportunities = await _scope.Opportunities().AsNoTracking()
-            .Select(item => new { item.Stage, item.Status, item.Amount, item.Probability })
+            .Select(item => new { item.Stage, item.Status, item.Amount, item.Probability, item.OwnerId })
             .ToListAsync();
         var groups = CrmWorkflowRules.OpportunityStages.Select(stage =>
         {
@@ -85,7 +92,19 @@ public class ReportsController : Controller
         }).ToList();
         var rows = groups.Select(group => new[] { group.Stage, group.Count.ToString(), group.Amount.ToString("C"), group.WeightedAmount.ToString("C") }).ToList();
         var openItems = opportunities.Where(item => item.Status == "Open").ToList();
-        return View("Report", BuildReportAsync("Pipeline Report", "Open opportunity amount and weighted value grouped by stage.",
+        var ownerIds = openItems.Where(item => item.OwnerId != null).Select(item => item.OwnerId!).Distinct().ToList();
+        var ownerNames = await _context.Users.AsNoTracking().Where(user => ownerIds.Contains(user.Id))
+            .ToDictionaryAsync(user => user.Id, user => user.FullName);
+        var ownerGroups = openItems.GroupBy(item => item.OwnerId).OrderBy(group => group.Key);
+        foreach (var owner in ownerGroups)
+        {
+            var ownerName = owner.Key != null && ownerNames.TryGetValue(owner.Key, out var fullName)
+                ? fullName
+                : "Unassigned";
+            rows.Add(new[] { $"Owner: {ownerName}", owner.Count().ToString(), owner.Sum(item => item.Amount).ToString("C"),
+                owner.Sum(item => item.Amount * item.Probability / 100m).ToString("C") });
+        }
+        return View("Report", BuildReportAsync("Pipeline Report", "Open opportunity amount and weighted value grouped by stage and owner.",
             new[] { "Stage", "Count", "Amount", "Weighted amount" }, rows,
             ("Open pipeline", openItems.Sum(item => item.Amount).ToString("C")),
             ("Weighted pipeline", openItems.Sum(item => item.Amount * item.Probability / 100m).ToString("C"))));
@@ -160,7 +179,8 @@ public class ReportsController : Controller
         DateTime? from,
         DateTime? to,
         string? entityName,
-        [FromQuery(Name = "action")] string? actionFilter)
+        [FromQuery(Name = "action")] string? actionFilter,
+        string? actorUserId)
     {
         var isAdmin = User.IsInRole("Admin");
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -169,6 +189,10 @@ public class ReportsController : Controller
         {
             var businessEntities = new[] { "Customer", "Lead", "FollowUp", "Opportunity", "Activity" };
             query = query.Where(log => log.UserId == userId && businessEntities.Contains(log.EntityName));
+        }
+        else if (!string.IsNullOrWhiteSpace(actorUserId))
+        {
+            query = query.Where(log => log.UserId == actorUserId);
         }
         if (from.HasValue)
             query = query.Where(log => log.CreatedDate >= from.Value.Date);
@@ -190,6 +214,15 @@ public class ReportsController : Controller
         ViewBag.To = to?.ToString("yyyy-MM-dd");
         ViewBag.EntityName = entityName;
         ViewBag.ActionFilter = actionFilter;
+        ViewBag.UserId = actorUserId;
+        ViewBag.Users = isAdmin
+            ? await _context.Users.AsNoTracking().OrderBy(user => user.FullName)
+                .Select(user => new AssigneeOptionViewModel
+                {
+                    Id = user.Id,
+                    Name = string.IsNullOrWhiteSpace(user.FullName) ? user.Email ?? "User" : user.FullName
+                }).ToListAsync()
+            : new List<AssigneeOptionViewModel>();
         return View("Report", new ReportPageViewModel
         {
             Title = "Audit Report",

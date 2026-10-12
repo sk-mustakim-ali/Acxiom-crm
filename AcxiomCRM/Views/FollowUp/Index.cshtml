@@ -9,6 +9,12 @@
     <a class="btn btn-primary" asp-action="Create">Schedule Follow-Up</a>
 </div>
 
+<div class="d-flex gap-2 mb-3">
+    <a asp-action="Index" class="btn btn-sm @(ViewBag.Due == null ? "btn-primary" : "btn-outline-primary")">All</a>
+    <a asp-action="Index" asp-route-due="upcoming" class="btn btn-sm @(ViewBag.Due as string == "upcoming" ? "btn-primary" : "btn-outline-primary")">Upcoming (@ViewBag.UpcomingCount)</a>
+    <a asp-action="Index" asp-route-due="overdue" class="btn btn-sm @(ViewBag.Due as string == "overdue" ? "btn-danger" : "btn-outline-danger")">Overdue (@ViewBag.OverdueCount)</a>
+</div>
+
 <form method="get" class="row g-2 mb-3">
     <div class="col-md-3">
         <input type="search" name="search" value="@Context.Request.Query["search"]" class="form-control" placeholder="Search subject or related record" />
@@ -60,7 +66,7 @@
                 <td>@followUp.Subject</td>
                 <td>
                     @followUp.FollowUpDate.ToShortDateString()
-                    @if (followUp.Status == "Planned" && followUp.FollowUpDate.Date < DateTime.Today)
+                    @if (AcxiomCRM.Services.CrmWorkflowRules.IsOverdueFollowUp(followUp, DateTime.Today))
                     {
                         <span class="badge bg-danger">Overdue</span>
                     }

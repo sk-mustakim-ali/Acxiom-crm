@@ -21,10 +21,22 @@
             }
         </select>
     </div>
+    @if (isAdmin)
+    {
+        <div class="col-md-2">
+            <select class="form-select" name="actorUserId" aria-label="Filter by user">
+                <option value="">All users</option>
+                @foreach (var user in (IEnumerable<AcxiomCRM.Controllers.AssigneeOptionViewModel>)ViewBag.Users)
+                {
+                    <option value="@user.Id" selected="@(ViewBag.UserId as string == user.Id)">@user.Name</option>
+                }
+            </select>
+        </div>
+    }
     <div class="col-md-2">
         <select class="form-select" name="action">
             <option value="">All actions</option>
-            @foreach (var name in new[] { "Login", "Logout", "FailedLogin", "Lockout", "Register", "Create", "Update", "Delete", "Deactivate", "Convert", "Complete", "Reschedule", "CreateUser", "ChangeUserRole", "ActivateUser", "DeactivateUser", "UnlockUser", "GeneratePasswordResetToken" })
+            @foreach (var name in new[] { "Login", "Logout", "FailedLogin", "Lockout", "Register", "Create", "Update", "Delete", "Deactivate", "Convert", "Complete", "Reschedule", "CreateUser", "ChangeUserRole", "ActivateUser", "DeactivateUser", "UnlockUser" })
             {
                 <option value="@name" selected="@(ViewBag.ActionFilter as string == name)">@name</option>
             }

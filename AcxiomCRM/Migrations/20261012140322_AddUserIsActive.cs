@@ -15,7 +15,9 @@ namespace AcxiomCRM.Migrations
                 table: "AspNetUsers",
                 type: "INTEGER",
                 nullable: false,
-                defaultValue: false);
+                // Accounts that existed before activation tracking was added
+                // remain usable. New account creation explicitly sets this field.
+                defaultValue: true);
         }
 
         /// <inheritdoc />

@@ -21,6 +21,7 @@ public class AuditLogController : Controller
         string? search,
         string? entityName,
         [FromQuery(Name = "action")] string? actionFilter,
+        string? actorUserId,
         DateTime? from,
         DateTime? to)
     {
@@ -32,6 +33,10 @@ public class AuditLogController : Controller
         {
             var businessEntities = new[] { "Customer", "Lead", "FollowUp", "Opportunity", "Activity" };
             query = query.Where(log => log.UserId == userId && businessEntities.Contains(log.EntityName));
+        }
+        else if (!string.IsNullOrWhiteSpace(actorUserId))
+        {
+            query = query.Where(log => log.UserId == actorUserId);
         }
 
         if (!string.IsNullOrWhiteSpace(entityName))
@@ -66,6 +71,15 @@ public class AuditLogController : Controller
         ViewBag.Search = search;
         ViewBag.EntityName = entityName;
         ViewBag.ActionFilter = actionFilter;
+        ViewBag.UserId = actorUserId;
+        ViewBag.Users = isAdmin
+            ? await _context.Users.AsNoTracking().OrderBy(user => user.FullName)
+                .Select(user => new AssigneeOptionViewModel
+                {
+                    Id = user.Id,
+                    Name = string.IsNullOrWhiteSpace(user.FullName) ? user.Email ?? "User" : user.FullName
+                }).ToListAsync()
+            : new List<AssigneeOptionViewModel>();
         ViewBag.From = from?.ToString("yyyy-MM-dd");
         ViewBag.To = to?.ToString("yyyy-MM-dd");
         ViewBag.IsAdmin = isAdmin;

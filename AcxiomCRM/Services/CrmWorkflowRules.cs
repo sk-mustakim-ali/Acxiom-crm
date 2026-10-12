@@ -1,3 +1,5 @@
+using AcxiomCRM.Models;
+
 namespace AcxiomCRM.Services;
 
 public static class CrmWorkflowRules
@@ -69,6 +71,29 @@ public static class CrmWorkflowRules
     public static bool IsValidFollowUpStatus(string? status) =>
         FollowUpStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
 
+    public static bool CanTransitionFollowUp(string? current, string? next)
+    {
+        if (string.Equals(current, next, StringComparison.OrdinalIgnoreCase))
+        {
+            return IsValidFollowUpStatus(next);
+        }
+
+        return current?.Equals("Planned", StringComparison.OrdinalIgnoreCase) == true
+            && IsValidFollowUpStatus(next);
+    }
+
+    public static bool IsOverdueFollowUp(FollowUp followUp, DateTime today) =>
+        followUp.Status.Equals("Planned", StringComparison.OrdinalIgnoreCase)
+        && followUp.FollowUpDate.Date < today.Date;
+
+    public static PipelineValues CalculatePipelineValues(IEnumerable<Opportunity> opportunities)
+    {
+        var open = opportunities.Where(opportunity => IsActiveOpportunityStatus(opportunity.Status)).ToList();
+        return new PipelineValues(
+            open.Sum(opportunity => opportunity.Amount),
+            open.Sum(opportunity => opportunity.Amount * opportunity.Probability / 100m));
+    }
+
     public static bool IsValidFollowUpType(string? type) =>
         FollowUpTypes.Contains(type, StringComparer.OrdinalIgnoreCase);
 
@@ -81,3 +106,5 @@ public static class CrmWorkflowRules
     private static bool IsOneOf(string? value, params string[] choices) =>
         choices.Contains(value, StringComparer.OrdinalIgnoreCase);
 }
+
+public readonly record struct PipelineValues(decimal OpenValue, decimal WeightedValue);

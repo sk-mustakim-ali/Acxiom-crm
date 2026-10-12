@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Create Opportunity";
     var customers = ViewBag.Customers as IEnumerable<AcxiomCRM.Models.Customer> ?? Enumerable.Empty<AcxiomCRM.Models.Customer>();
+    var leads = ViewBag.Leads as IEnumerable<AcxiomCRM.Models.Lead> ?? Enumerable.Empty<AcxiomCRM.Models.Lead>();
     var owners = ViewBag.AssignableOwners as IEnumerable<AcxiomCRM.Data.ApplicationUser> ?? Enumerable.Empty<AcxiomCRM.Data.ApplicationUser>();
     var opportunityStages = AcxiomCRM.Services.CrmWorkflowRules.OpportunityStages;
     var opportunityStatuses = AcxiomCRM.Services.CrmWorkflowRules.OpportunityStatuses;
@@ -17,6 +18,19 @@
             <label asp-for="OpportunityName" class="form-label"></label>
             <input asp-for="OpportunityName" class="form-control" />
             <span asp-validation-for="OpportunityName" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="LeadId" class="form-label">Related lead (optional)</label>
+            <select asp-for="LeadId" class="form-select">
+                <option value="">No related lead</option>
+                @foreach (var lead in leads) { <option value="@lead.Id">@lead.LeadName</option> }
+            </select>
+            <span asp-validation-for="LeadId" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Source" class="form-label"></label>
+            <input asp-for="Source" class="form-control" />
+            <span asp-validation-for="Source" class="text-danger"></span>
         </div>
         <div class="col-md-6">
             <label asp-for="CustomerId" class="form-label"></label>

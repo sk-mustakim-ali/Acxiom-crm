@@ -20,7 +20,7 @@ public class OpportunityController : Controller
         _accessScope = accessScope;
     }
 
-    public async Task<IActionResult> Index(string? stage, string? status, string? search, string? ownerId)
+    public async Task<IActionResult> Index(string? stage, string? status, string? source, string? search, string? ownerId)
     {
         var query = _accessScope.Opportunities()
             .Include(o => o.Customer)
@@ -41,6 +41,11 @@ public class OpportunityController : Controller
             query = query.Where(o => o.Status == status);
         }
 
+        if (!string.IsNullOrWhiteSpace(source))
+        {
+            query = query.Where(o => o.Source == source);
+        }
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
@@ -49,6 +54,10 @@ public class OpportunityController : Controller
 
         var opportunities = await query.OrderByDescending(o => o.CreatedDate).ToListAsync();
         ViewBag.OwnerId = ownerId;
+        ViewBag.Source = source;
+        ViewBag.Sources = await _accessScope.Opportunities().AsNoTracking()
+            .Where(item => item.Source != null && item.Source != "")
+            .Select(item => item.Source).Distinct().OrderBy(item => item).ToListAsync();
         if (CanManageAssignments)
         {
             ViewBag.AssignableOwners = await _accessScope.GetActiveSalesExecutivesAsync();
@@ -58,7 +67,7 @@ public class OpportunityController : Controller
 
     public async Task<IActionResult> Create()
     {
-        ViewBag.Customers = await _accessScope.Customers().OrderBy(c => c.CustomerName).ToListAsync();
+        await PopulateChoicesAsync();
         await PopulateAssignableOwnersAsync();
         return View(new Opportunity { OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier) });
     }
@@ -77,7 +86,7 @@ public class OpportunityController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(Opportunity opportunity)
     {
-        ViewBag.Customers = await _accessScope.Customers().OrderBy(c => c.CustomerName).ToListAsync();
+        await PopulateChoicesAsync();
         await PopulateAssignableOwnersAsync();
 
         if (!ModelState.IsValid)
@@ -117,6 +126,12 @@ public class OpportunityController : Controller
             return View(opportunity);
         }
 
+        if (opportunity.LeadId.HasValue && !await _accessScope.CanAccessLeadAsync(opportunity.LeadId.Value))
+        {
+            ModelState.AddModelError(nameof(Opportunity.LeadId), "Select a lead you are authorized to manage.");
+            return View(opportunity);
+        }
+
         opportunity.OwnerId = CanManageAssignments
             ? opportunity.OwnerId
             : User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -127,6 +142,7 @@ public class OpportunityController : Controller
         }
 
         opportunity.CreatedDate = DateTime.UtcNow;
+        opportunity.Source = opportunity.Source.Trim();
         opportunity.ClosedDate = CrmWorkflowRules.IsActiveOpportunityStatus(opportunity.Status) ? null : DateTime.UtcNow;
 
         _context.Opportunities.Add(opportunity);
@@ -143,7 +159,7 @@ public class OpportunityController : Controller
             return NotFound();
         }
 
-        ViewBag.Customers = await _accessScope.Customers().OrderBy(c => c.CustomerName).ToListAsync();
+        await PopulateChoicesAsync();
         await PopulateAssignableOwnersAsync();
         return View(opportunity);
     }
@@ -157,7 +173,7 @@ public class OpportunityController : Controller
             return BadRequest();
         }
 
-        ViewBag.Customers = await _accessScope.Customers().OrderBy(c => c.CustomerName).ToListAsync();
+        await PopulateChoicesAsync();
         await PopulateAssignableOwnersAsync();
 
         if (!ModelState.IsValid)
@@ -209,6 +225,12 @@ public class OpportunityController : Controller
             return View(opportunity);
         }
 
+        if (opportunity.LeadId.HasValue && !await _accessScope.CanAccessLeadAsync(opportunity.LeadId.Value))
+        {
+            ModelState.AddModelError(nameof(Opportunity.LeadId), "Select a lead you are authorized to manage.");
+            return View(opportunity);
+        }
+
         opportunity.OwnerId = CanManageAssignments ? opportunity.OwnerId : existing.OwnerId;
         if (opportunity.OwnerId != existing.OwnerId
             && !await _accessScope.IsActiveSalesExecutiveAsync(opportunity.OwnerId))
@@ -218,6 +240,7 @@ public class OpportunityController : Controller
         }
 
         opportunity.CreatedDate = existing.CreatedDate;
+        opportunity.Source = opportunity.Source.Trim();
         opportunity.ClosedDate = opportunity.Status.Equals("Open", StringComparison.OrdinalIgnoreCase)
             ? null
             : existing.ClosedDate ?? DateTime.UtcNow;
@@ -269,5 +292,12 @@ public class OpportunityController : Controller
         ViewBag.AssignableOwners = CanManageAssignments
             ? await _accessScope.GetActiveSalesExecutivesAsync()
             : new List<ApplicationUser>();
+    }
+
+    private async Task PopulateChoicesAsync()
+    {
+        ViewBag.Customers = await _accessScope.Customers().OrderBy(customer => customer.CustomerName).ToListAsync();
+        ViewBag.Leads = await _accessScope.Leads().OrderBy(lead => lead.LeadName).ToListAsync();
+        await PopulateAssignableOwnersAsync();
     }
 }

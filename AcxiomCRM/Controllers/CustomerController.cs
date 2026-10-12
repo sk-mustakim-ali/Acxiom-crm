@@ -79,6 +79,12 @@ public class CustomerController : Controller
             return View(customer);
         }
 
+        customer.CustomerName = customer.CustomerName.Trim();
+        customer.Email = customer.Email.Trim();
+        customer.Phone = customer.Phone.Trim();
+        customer.NormalizedEmail = CrmContactNormalization.NormalizeEmail(customer.Email);
+        customer.NormalizedPhone = CrmContactNormalization.NormalizePhone(customer.Phone);
+
         if (!await _accessScope.IsActiveSalesExecutiveAsync(customer.OwnerId))
         {
             ModelState.AddModelError(nameof(Customer.OwnerId), "Assign the customer to an active Sales Executive.");
@@ -91,29 +97,37 @@ public class CustomerController : Controller
             return View(customer);
         }
 
-        if (await _context.Customers.AnyAsync(c => c.Email.ToLower() == customer.Email.Trim().ToLower()))
+        if (await _context.Customers.AnyAsync(c => c.NormalizedEmail == customer.NormalizedEmail))
         {
             ModelState.AddModelError(nameof(Customer.Email), "Email is already in use.");
             return View(customer);
         }
 
-        if (await _context.Customers.AnyAsync(c => c.Phone == customer.Phone.Trim()))
+        if (await _context.Customers.AnyAsync(c => c.NormalizedPhone == customer.NormalizedPhone))
         {
             ModelState.AddModelError(nameof(Customer.Phone), "Phone is already in use.");
             return View(customer);
         }
 
-        customer.Email = customer.Email.Trim();
-        customer.Phone = customer.Phone.Trim();
         customer.CompanyName = customer.CompanyName.Trim();
-        customer.CustomerName = customer.CustomerName.Trim();
         customer.Status = CrmWorkflowRules.CustomerStatuses.First(status => status.Equals(customer.Status, StringComparison.OrdinalIgnoreCase));
         customer.CreatedBy = User.Identity?.Name;
         customer.CreatedDate = DateTime.UtcNow;
 
-        _context.Customers.Add(customer);
-        await _context.SaveChangesAsync();
-        await LogAuditAsync("Create", "Customer", customer.Id, null, customer.CustomerName);
+        await using var createTransaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            _context.Customers.Add(customer);
+            await _context.SaveChangesAsync();
+            await LogAuditAsync("Create", "Customer", customer.Id, null, $"Name={customer.CustomerName}; Status={customer.Status}; Owner={customer.OwnerId}");
+            await createTransaction.CommitAsync();
+        }
+        catch (DbUpdateException exception) when (CrmContactNormalization.IsUniqueConstraintViolation(exception))
+        {
+            await createTransaction.RollbackAsync();
+            ModelState.AddModelError(string.Empty, "A customer with this email or phone already exists.");
+            return View(customer);
+        }
 
         return RedirectToAction(nameof(Index));
     }
@@ -153,6 +167,12 @@ public class CustomerController : Controller
             return View(customer);
         }
 
+        customer.CustomerName = customer.CustomerName.Trim();
+        customer.Email = customer.Email.Trim();
+        customer.Phone = customer.Phone.Trim();
+        customer.NormalizedEmail = CrmContactNormalization.NormalizeEmail(customer.Email);
+        customer.NormalizedPhone = CrmContactNormalization.NormalizePhone(customer.Phone);
+
         if (!CrmWorkflowRules.CustomerStatuses.Contains(customer.Status, StringComparer.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(Customer.Status), "Select a valid customer status.");
@@ -166,13 +186,13 @@ public class CustomerController : Controller
             return View(customer);
         }
 
-        if (await _context.Customers.AnyAsync(c => c.Id != id && c.Email.ToLower() == customer.Email.Trim().ToLower()))
+        if (await _context.Customers.AnyAsync(c => c.Id != id && c.NormalizedEmail == customer.NormalizedEmail))
         {
             ModelState.AddModelError(nameof(Customer.Email), "Email is already in use.");
             return View(customer);
         }
 
-        if (await _context.Customers.AnyAsync(c => c.Id != id && c.Phone == customer.Phone.Trim()))
+        if (await _context.Customers.AnyAsync(c => c.Id != id && c.NormalizedPhone == customer.NormalizedPhone))
         {
             ModelState.AddModelError(nameof(Customer.Phone), "Phone is already in use.");
             return View(customer);
@@ -181,16 +201,26 @@ public class CustomerController : Controller
         customer.CustomerCode = existing.CustomerCode;
         customer.CreatedBy = existing.CreatedBy;
         customer.CreatedDate = existing.CreatedDate;
-        customer.CustomerName = customer.CustomerName.Trim();
-        customer.Email = customer.Email.Trim();
-        customer.Phone = customer.Phone.Trim();
         customer.CompanyName = customer.CompanyName.Trim();
         customer.ModifiedDate = DateTime.UtcNow;
         customer.Status = CrmWorkflowRules.CustomerStatuses.First(status => status.Equals(customer.Status, StringComparison.OrdinalIgnoreCase));
 
-        _context.Update(customer);
-        await _context.SaveChangesAsync();
-        await LogAuditAsync("Update", "Customer", customer.Id, existing.CustomerName, customer.CustomerName);
+        await using var editTransaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            _context.Update(customer);
+            await _context.SaveChangesAsync();
+            await LogAuditAsync("Update", "Customer", customer.Id,
+                $"Name={existing.CustomerName}; Email={existing.Email}; Phone={existing.Phone}; Status={existing.Status}; Owner={existing.OwnerId}",
+                $"Name={customer.CustomerName}; Email={customer.Email}; Phone={customer.Phone}; Status={customer.Status}; Owner={customer.OwnerId}");
+            await editTransaction.CommitAsync();
+        }
+        catch (DbUpdateException exception) when (CrmContactNormalization.IsUniqueConstraintViolation(exception))
+        {
+            await editTransaction.RollbackAsync();
+            ModelState.AddModelError(string.Empty, "A customer with this email or phone already exists.");
+            return View(customer);
+        }
 
         return RedirectToAction(nameof(Index));
     }
