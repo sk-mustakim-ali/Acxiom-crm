@@ -13,9 +13,6 @@ obj/
 *.log
 *.bak
 
-# Project backups
-AcxiomCRM_Backup_*
-AcxiomCRM_ModelsBackup_*
 
 # Python cache
 .venv/

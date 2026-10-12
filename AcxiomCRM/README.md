@@ -2,7 +2,7 @@
 
 AcxiomCRM is a role-aware customer relationship management application for organizing customer accounts, tracking prospective business, managing sales opportunities and follow-ups, and reviewing team performance. It is built with ASP.NET Core 8 MVC, ASP.NET Core Identity, Entity Framework Core, and SQLite.
 
-> **Local demo is running:** [http://localhost:5088](http://localhost:5088). Sign in on the running development instance with the administrator account supplied to you. Do not assume this local account or its database exists in a fresh clone.
+Run the application locally as described below. A development database and its accounts are not included in a fresh clone.
 
 ## Table of contents
 
@@ -35,13 +35,11 @@ AcxiomCRM is a role-aware customer relationship management application for organ
 
 All of these screens are part of the same application. The main navigation groups record-management links under **CRM**, report links under **Insights**, and provides a visible **Logout** button alongside the signed-in account.
 
-On narrow screens, tap the menu button beside the AcxiomCRM brand to expand the navigation. The signed-in account and high-contrast **Logout** button are at the bottom of the expanded menu.
-
-![Expanded application navigation showing the Logout button](docs/screenshots/navigation-logout.png)
+The signed-in account and **Logout** button remain available in the shared navigation.
 
 ## Screenshots
 
-These full-page captures show the running application. The local database used for the captures is not distributed with the repository; CRM dashboard figures are zero where that database has no matching CRM records.
+These captures show verified desktop views of the running application. They are illustrative, not seeded application data; the database used for the captures is not distributed with the repository.
 
 ### Dashboard
 
@@ -49,45 +47,29 @@ KPIs and charts respond to the selected reporting period and the signed-in user'
 
 ![AcxiomCRM dashboard](docs/screenshots/dashboard.png)
 
-### Customer and sales workflow
+### Customer and sales lists
 
-The customer and lead lists provide the entry points to create and manage records. Leads can be progressed through qualification and converted when eligible; opportunities represent the sales pipeline.
+The customer and lead lists provide the entry points to create and manage records.
 
 | Customers | Leads |
 |---|---|
 | ![Customer list](docs/screenshots/customers.png) | ![Lead list](docs/screenshots/leads.png) |
 
-| Opportunities | Follow-ups |
-|---|---|
-| ![Opportunity list](docs/screenshots/opportunities.png) | ![Follow-up list](docs/screenshots/follow-ups.png) |
+### Opportunities
 
-### Activities and reports
+![Opportunity list](docs/screenshots/opportunities.png)
 
-| Activities | Report catalogue |
-|---|---|
-| ![Activity list](docs/screenshots/activities.png) | ![Reports](docs/screenshots/reports.png) |
-
-The pipeline report groups open amount and weighted amount by sales stage.
-
-![Opportunity pipeline report](docs/screenshots/pipeline-report.png)
-
-### Administration and audit
-
-The user-management page is restricted to Admins. Audit entries include sign-in/sign-out events and tracked application changes.
-
-| User management | Audit log |
-|---|---|
-| ![User management](docs/screenshots/user-management.png) | ![Audit log](docs/screenshots/audit-log.png) |
+Screenshots for follow-ups, activities, reports, and administration are omitted until valid captures are available; earlier capture attempts produced error pages and were removed.
 
 ## Roles and access
 
 | Role | Access |
 |---|---|
 | **Admin** | Organization-wide CRM records and reports; user creation and administration; full audit-log details. |
-| **Manager** | Organization-wide CRM records, assignment controls, management reports, and audit-log access. Cannot administer accounts. |
+| **Manager** | Organization-wide CRM records, assignment controls, management reports, and limited business-audit access. Cannot administer accounts. |
 | **SalesExecutive** | Records assigned to them or associated with customers/leads they own. Dashboard, API results, activities, follow-ups, and reports are scoped accordingly. |
 
-Public self-registration always creates a **SalesExecutive** account. A registrant cannot select a privileged role. Admins can create or change user roles using the User Management page. In this implementation there is no separate team entity, so Manager access is organization-wide.
+Public self-registration always creates a **SalesExecutive** account. A registrant cannot select a privileged role. Admins can create or change user roles using the User Management page. In this implementation there is no separate team entity, so Manager access is organization-wide rather than team-scoped. Managers can view only their own business audit entries; Admins can view security and business audit details.
 
 ## Typical CRM workflow
 
@@ -112,7 +94,7 @@ Workflow transitions and status/stage combinations are validated on the server; 
 Open PowerShell in the `AcxiomCRM` project directory:
 
 ```powershell
-cd "C:\Users\ASUS\Desktop\AcxiomCRM Project\AcxiomCRM"
+cd "<path-to-project>\AcxiomCRM"
 dotnet restore
 dotnet build
 ```
@@ -170,7 +152,7 @@ API routes use the same Identity cookie session and role-based record scoping as
 | `POST` | `/api/auth/login` | Signs in with email and password; returns the user ID and roles. |
 | `POST` | `/api/auth/logout` | Signs out the current session. |
 
-For state-changing requests, send the antiforgery cookie and include its request token in the `RequestVerificationToken` header. Authentication API requests are limited to five per minute per remote IP address.
+For API sign-in, first request `/api/auth/csrf` and include that token with the login request. After signing in, request a fresh token before any state-changing request; send its antiforgery cookie and include the new request token in the `RequestVerificationToken` header. Authentication API requests are limited to five per minute per remote IP address.
 
 ### CRM and reporting routes
 
@@ -211,17 +193,23 @@ AcxiomCRM/
 
 ## Assignment feature checklist
 
-- [x] Identity sign-in, sign-out, public registration, and the Admin/Manager/SalesExecutive role model.
-- [x] Role-aware customer, lead, opportunity, and follow-up management.
-- [x] Server-side record scoping, relationship checks, form validation, and workflow transition rules.
-- [x] Lead qualification and conversion into a customer.
-- [x] Dashboard KPIs, reporting-period filtering, and lead/opportunity/sales charts.
-- [x] Follow-up scheduling and activity management.
-- [x] Administrator user/role management and account activation/lockout operations.
-- [x] Audit history and business/pipeline/conversion/activity reports.
-- [x] Authenticated, DTO-based API routes with antiforgery and authentication rate limiting.
+- [x] Identity sign-in, sign-out, public registration, password hashing/policy, lockout, and the Admin/Manager/SalesExecutive roles.
+- [x] Customer, lead, opportunity, follow-up, and activity MVC workflows with server-side access checks.
+- [x] Lead qualification/conversion, opportunity stages, and follow-up scheduling/status rules.
+- [x] Dashboard KPIs, date-period selection, charts, and scoped record queries.
+- [x] Admin user creation, role changes, activation/deactivation, unlock, and reset-token generation.
+- [x] Authentication and CRM audit records, plus customer/lead/follow-up/opportunity/pipeline/conversion/user-activity reports.
+- [x] Authenticated DTO-based customer, lead, opportunity, follow-up, and pipeline API routes.
 - [x] SQLite migrations applied automatically at application startup.
-- [x] Setup, role, API, and security guidance documented here.
+- [ ] Opportunity records do not include the specified source field.
+- [ ] Follow-up screens do not distinguish overdue items or send reminders/notifications.
+- [ ] Several reports omit specified dimensions/filters: pipeline is not owner-grouped; the lead report omits source and conversion details; audit filtering by user and report-wide filtering/export are incomplete.
+- [ ] List views provide search/filtering but do not provide consistent sorting and pagination.
+- [ ] Manager data is not team-scoped: no team hierarchy is modeled, so managers see organization-wide records.
+- [ ] User administration does not edit user profile details such as name/email after creation.
+- [ ] The reset-token feature has no email provider/delivery workflow.
+- [ ] API routes are listed, but full request/response schemas and a consistent error-response catalogue are not documented.
+- [ ] No automated acceptance-test suite is included. Selected validation, API CRUD/audit, and role-scope scenarios were checked manually against a disposable local database.
 
 ## Limitations and implementation notes
 
@@ -229,4 +217,4 @@ AcxiomCRM/
 - Activity management is provided by MVC screens; it does not currently have separate REST API routes.
 - Password-reset token generation is an administrative operation. Delivering reset links to end users requires an email provider, which is not configured in this project.
 - Charts and reports reflect the records in the current database and the signed-in user's authorized scope. New databases are empty apart from Identity roles and configured users.
-- Screenshots document visible screens; they are not seeded sample data and do not imply a populated database on a fresh install.
+- Screenshots document only the verified dashboard, customer, lead, and opportunity screens; other module captures are omitted until valid images are available. They ar'nt seeded sample data and do not imply a populated database on a fresh install.
