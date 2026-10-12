@@ -14,6 +14,7 @@ public class Activity
     [StringLength(150)]
     public string Subject { get; set; } = string.Empty;
 
+    [StringLength(2000)]
     public string? Description { get; set; }
 
     [Required]

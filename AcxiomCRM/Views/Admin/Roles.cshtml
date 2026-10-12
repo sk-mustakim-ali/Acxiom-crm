@@ -1,0 +1,21 @@
+@model IEnumerable<AcxiomCRM.Models.AdminRoleListItemViewModel>
+@{
+    ViewData["Title"] = "Role Management";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Role Management</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary">Back to users</a>
+</div>
+<p class="text-muted">The application uses a fixed role catalog to keep authorization boundaries explicit. Assign each account exactly one primary role from User Management.</p>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead class="table-dark"><tr><th>Role</th><th>Scope</th><th>Users</th></tr></thead>
+        <tbody>
+        @foreach (var role in Model)
+        {
+            <tr><td>@role.Name</td><td>@role.Scope</td><td>@role.UserCount</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,13 @@
+@model AcxiomCRM.Models.Activity
+<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<div class="mb-3"><label asp-for="ActivityType" class="form-label"></label><select asp-for="ActivityType" class="form-select">@foreach (var value in AcxiomCRM.Services.CrmWorkflowRules.FollowUpTypes) { <option value="@value">@value</option> }</select><span asp-validation-for="ActivityType" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="Subject" class="form-label"></label><input asp-for="Subject" class="form-control" /><span asp-validation-for="Subject" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" class="form-control"></textarea><span asp-validation-for="Description" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="ActivityDate" class="form-label"></label><input asp-for="ActivityDate" type="datetime-local" class="form-control" /><span asp-validation-for="ActivityDate" class="text-danger"></span></div>
+<div class="mb-3"><label asp-for="CustomerId" class="form-label">Customer (optional if lead selected)</label><select asp-for="CustomerId" class="form-select"><option value="">-- Select customer --</option>@foreach (var customer in (IEnumerable<AcxiomCRM.Models.Customer>)ViewBag.Customers) { <option value="@customer.Id">@customer.CustomerName</option> }</select></div>
+<div class="mb-3"><label asp-for="LeadId" class="form-label">Lead (optional if customer selected)</label><select asp-for="LeadId" class="form-select"><option value="">-- Select lead --</option>@foreach (var lead in (IEnumerable<AcxiomCRM.Models.Lead>)ViewBag.Leads) { <option value="@lead.Id">@lead.LeadName</option> }</select></div>
+<div class="mb-3"><label asp-for="Status" class="form-label"></label><select asp-for="Status" class="form-select">@foreach (var value in AcxiomCRM.Services.CrmWorkflowRules.ActivityStatuses) { <option value="@value">@value</option> }</select><span asp-validation-for="Status" class="text-danger"></span></div>
+@if (User.IsInRole("Admin") || User.IsInRole("Manager"))
+{
+    <div class="mb-3"><label asp-for="AssignedToId" class="form-label">Assignee</label><select asp-for="AssignedToId" class="form-select"><option value="">Unassigned</option>@foreach (var user in (IEnumerable<AcxiomCRM.Controllers.AssigneeOptionViewModel>)ViewBag.Users) { <option value="@user.Id">@user.Name</option> }</select></div>
+}

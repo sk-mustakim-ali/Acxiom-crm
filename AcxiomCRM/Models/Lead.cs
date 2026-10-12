@@ -19,6 +19,7 @@ public class Lead
     public string? Email { get; set; }
 
     [Phone]
+    [RegularExpression(@"^(?=(?:\D*\d){7,15}\D*$)\+?[0-9][0-9(). -]*$", ErrorMessage = "Enter a valid phone number.")]
     [StringLength(20)]
     public string? Phone { get; set; }
 
@@ -49,4 +50,3 @@ public class Lead
     public ICollection<FollowUp> FollowUps { get; set; } = new List<FollowUp>();
     public ICollection<Activity> Activities { get; set; } = new List<Activity>();
 }
-

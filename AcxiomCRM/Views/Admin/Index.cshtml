@@ -1,0 +1,147 @@
+@model AcxiomCRM.Models.AdminUserListViewModel
+
+@{
+    ViewData["Title"] = "User Management";
+    var resetToken = TempData["ResetToken"] as string;
+    var resetTokenUser = TempData["ResetTokenUser"] as string;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>User Management</h2>
+    <div class="d-flex gap-2">
+        <a asp-action="Roles" class="btn btn-outline-secondary">Role catalog</a>
+        <a asp-action="Create" class="btn btn-primary">Create user</a>
+    </div>
+</div>
+
+@if (TempData["StatusMessage"] is string statusMessage)
+{
+    <div class="alert alert-success" role="status">@statusMessage</div>
+}
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+@if (!string.IsNullOrEmpty(resetToken))
+{
+    <div class="alert alert-warning" role="alert">
+        <strong>One-time password reset token for @resetTokenUser</strong>
+        <p class="mb-1">Share this token securely with the user. It is shown only once and is not included in audit details.</p>
+        <code class="user-select-all text-break">@resetToken</code>
+    </div>
+}
+
+<form asp-action="Index" method="get" class="row g-2 mb-3">
+    <div class="col-md-4">
+        <label for="search" class="form-label">Search users</label>
+        <input id="search" name="search" value="@Model.Search" class="form-control" placeholder="Name or email" />
+    </div>
+    <div class="col-md-2">
+        <label for="role" class="form-label">Role</label>
+        <select id="role" name="role" class="form-select">
+            <option value="">All roles</option>
+            @foreach (var role in new[] { "Admin", "Manager", "SalesExecutive" })
+            {
+                <option value="@role" selected="@(Model.RoleFilter == role)">@role</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label for="status" class="form-label">Status</label>
+        <select id="status" name="status" class="form-select">
+            <option value="">All statuses</option>
+            <option value="Active" selected="@(Model.StatusFilter == "Active")">Active</option>
+            <option value="Inactive" selected="@(Model.StatusFilter == "Inactive")">Inactive</option>
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label for="lockout" class="form-label">Lockout</label>
+        <select id="lockout" name="lockout" class="form-select">
+            <option value="">All accounts</option>
+            <option value="LockedOut" selected="@(Model.LockoutFilter == "LockedOut")">Locked out</option>
+            <option value="NotLockedOut" selected="@(Model.LockoutFilter == "NotLockedOut")">Not locked out</option>
+        </select>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-outline-primary me-2">Search</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Lockout</th>
+                <th>Manage</th>
+            </tr>
+        </thead>
+        <tbody>
+        @if (Model.Users.Count == 0)
+        {
+            <tr><td colspan="6" class="text-center text-muted">No users match the selected filters.</td></tr>
+        }
+        @foreach (var user in Model.Users)
+        {
+            <tr>
+                <td>@user.FullName</td>
+                <td>@user.Email</td>
+                <td>@(string.IsNullOrWhiteSpace(user.Roles) ? "No role" : user.Roles)</td>
+                <td>
+                    <span class="badge @(user.IsActive ? "bg-success" : "bg-secondary")">
+                        @(user.IsActive ? "Active" : "Inactive")
+                    </span>
+                </td>
+                <td>
+                    @if (user.IsLockedOut)
+                    {
+                        <span class="badge bg-danger">Locked until @user.LockoutEnd?.ToLocalTime().ToString("g")</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">Not locked</span>
+                    }
+                </td>
+                <td>
+                    <div class="d-flex flex-column gap-2">
+                        <form asp-action="ChangeRole" method="post" class="d-flex gap-1">
+                            <input type="hidden" name="id" value="@user.Id" />
+                            <select name="role" class="form-select form-select-sm" aria-label="Role for @user.Email">
+                                @foreach (var role in new[] { "Admin", "Manager", "SalesExecutive" })
+                                {
+                                    <option value="@role" selected="@(user.Roles.Split(", ", StringSplitOptions.RemoveEmptyEntries).Contains(role, StringComparer.Ordinal))">@role</option>
+                                }
+                            </select>
+                            <button type="submit" class="btn btn-sm btn-outline-primary">Set role</button>
+                        </form>
+                        <div class="d-flex flex-wrap gap-1">
+                            <form asp-action="SetActive" method="post">
+                                <input type="hidden" name="id" value="@user.Id" />
+                                <input type="hidden" name="active" value="@(!user.IsActive)" />
+                                <button type="submit" class="btn btn-sm btn-outline-@(user.IsActive ? "danger" : "success")">
+                                    @(user.IsActive ? "Deactivate" : "Activate")
+                                </button>
+                            </form>
+                            @if (user.IsLockedOut)
+                            {
+                                <form asp-action="Unlock" method="post">
+                                    <input type="hidden" name="id" value="@user.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-warning">Unlock</button>
+                                </form>
+                            }
+                            <form asp-action="GeneratePasswordResetToken" method="post">
+                                <input type="hidden" name="id" value="@user.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Generate reset token</button>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

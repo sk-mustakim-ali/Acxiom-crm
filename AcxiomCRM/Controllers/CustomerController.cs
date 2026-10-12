@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using AcxiomCRM.Data;
 using AcxiomCRM.Models;
+using AcxiomCRM.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,15 +12,21 @@ namespace AcxiomCRM.Controllers;
 public class CustomerController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly CrmAccessScope _accessScope;
 
-    public CustomerController(ApplicationDbContext context)
+    public CustomerController(ApplicationDbContext context, CrmAccessScope accessScope)
     {
         _context = context;
+        _accessScope = accessScope;
     }
 
-    public async Task<IActionResult> Index(string? search)
+    public async Task<IActionResult> Index(string? search, string? ownerId)
     {
-        var query = _context.Customers.AsQueryable();
+        var query = _accessScope.Customers();
+        if (!string.IsNullOrWhiteSpace(ownerId))
+        {
+            query = query.Where(customer => customer.OwnerId == ownerId);
+        }
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
@@ -27,23 +34,60 @@ public class CustomerController : Controller
         }
 
         var customers = await query.OrderByDescending(c => c.CreatedDate).ToListAsync();
+        ViewBag.OwnerId = ownerId;
+        var ownerIds = customers.Where(customer => customer.OwnerId != null).Select(customer => customer.OwnerId!).Distinct().ToList();
+        ViewBag.OwnerNames = await _context.Users
+            .Where(user => ownerIds.Contains(user.Id))
+            .ToDictionaryAsync(user => user.Id, user => user.FullName);
+        if (CanManageAssignments)
+        {
+            ViewBag.AssignableOwners = await _accessScope.GetActiveSalesExecutivesAsync();
+        }
         return View(customers);
     }
 
-    public IActionResult Create()
+    public async Task<IActionResult> Create()
     {
-        return View(new Customer());
+        await PopulateAssignableOwnersAsync();
+        return View(new Customer { OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier) });
+    }
+
+    public async Task<IActionResult> Details(int id)
+    {
+        var customer = await _accessScope.Customers()
+            .Include(item => item.Opportunities)
+            .Include(item => item.FollowUps)
+            .Include(item => item.Activities)
+            .FirstOrDefaultAsync(item => item.Id == id);
+        return customer == null ? NotFound() : View(customer);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(Customer customer)
     {
+        await PopulateAssignableOwnersAsync();
         customer.CustomerCode = "CUS-" + Guid.NewGuid().ToString("N").Substring(0, 12).ToUpperInvariant();
         ModelState.Remove(nameof(Customer.CustomerCode));
 
+        customer.OwnerId = CanManageAssignments
+            ? customer.OwnerId
+            : User.FindFirstValue(ClaimTypes.NameIdentifier);
+
         if (!ModelState.IsValid)
         {
+            return View(customer);
+        }
+
+        if (!await _accessScope.IsActiveSalesExecutiveAsync(customer.OwnerId))
+        {
+            ModelState.AddModelError(nameof(Customer.OwnerId), "Assign the customer to an active Sales Executive.");
+            return View(customer);
+        }
+
+        if (!CrmWorkflowRules.CustomerStatuses.Contains(customer.Status, StringComparer.OrdinalIgnoreCase))
+        {
+            ModelState.AddModelError(nameof(Customer.Status), "Select a valid customer status.");
             return View(customer);
         }
 
@@ -63,7 +107,7 @@ public class CustomerController : Controller
         customer.Phone = customer.Phone.Trim();
         customer.CompanyName = customer.CompanyName.Trim();
         customer.CustomerName = customer.CustomerName.Trim();
-        customer.OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        customer.Status = CrmWorkflowRules.CustomerStatuses.First(status => status.Equals(customer.Status, StringComparison.OrdinalIgnoreCase));
         customer.CreatedBy = User.Identity?.Name;
         customer.CreatedDate = DateTime.UtcNow;
 
@@ -76,12 +120,13 @@ public class CustomerController : Controller
 
     public async Task<IActionResult> Edit(int id)
     {
-        var customer = await _context.Customers.FindAsync(id);
+        var customer = await _accessScope.Customers().FirstOrDefaultAsync(c => c.Id == id);
         if (customer == null)
         {
             return NotFound();
         }
 
+        await PopulateAssignableOwnersAsync();
         return View(customer);
     }
 
@@ -94,16 +139,31 @@ public class CustomerController : Controller
             return BadRequest();
         }
 
+        await PopulateAssignableOwnersAsync();
         ModelState.Remove(nameof(Customer.CustomerCode));
+        var existing = await _accessScope.Customers().AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
+        if (existing == null)
+        {
+            return NotFound();
+        }
+
+        customer.OwnerId = CanManageAssignments ? customer.OwnerId : existing.OwnerId;
         if (!ModelState.IsValid)
         {
             return View(customer);
         }
 
-        var existing = await _context.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
-        if (existing == null)
+        if (!CrmWorkflowRules.CustomerStatuses.Contains(customer.Status, StringComparer.OrdinalIgnoreCase))
         {
-            return NotFound();
+            ModelState.AddModelError(nameof(Customer.Status), "Select a valid customer status.");
+            return View(customer);
+        }
+
+        if (customer.OwnerId != existing.OwnerId
+            && !await _accessScope.IsActiveSalesExecutiveAsync(customer.OwnerId))
+        {
+            ModelState.AddModelError(nameof(Customer.OwnerId), "Assign the customer to an active Sales Executive.");
+            return View(customer);
         }
 
         if (await _context.Customers.AnyAsync(c => c.Id != id && c.Email.ToLower() == customer.Email.Trim().ToLower()))
@@ -119,9 +179,14 @@ public class CustomerController : Controller
         }
 
         customer.CustomerCode = existing.CustomerCode;
-        customer.OwnerId = existing.OwnerId;
         customer.CreatedBy = existing.CreatedBy;
         customer.CreatedDate = existing.CreatedDate;
+        customer.CustomerName = customer.CustomerName.Trim();
+        customer.Email = customer.Email.Trim();
+        customer.Phone = customer.Phone.Trim();
+        customer.CompanyName = customer.CompanyName.Trim();
+        customer.ModifiedDate = DateTime.UtcNow;
+        customer.Status = CrmWorkflowRules.CustomerStatuses.First(status => status.Equals(customer.Status, StringComparison.OrdinalIgnoreCase));
 
         _context.Update(customer);
         await _context.SaveChangesAsync();
@@ -134,15 +199,17 @@ public class CustomerController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
-        var customer = await _context.Customers.FindAsync(id);
+        var customer = await _accessScope.Customers().FirstOrDefaultAsync(c => c.Id == id);
         if (customer == null)
         {
             return NotFound();
         }
 
-        _context.Customers.Remove(customer);
+        var oldStatus = customer.Status;
+        customer.Status = "Inactive";
+        customer.ModifiedDate = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-        await LogAuditAsync("Delete", "Customer", id, customer.CustomerName, null);
+        await LogAuditAsync("Deactivate", "Customer", id, oldStatus, customer.Status);
         return RedirectToAction(nameof(Index));
     }
 
@@ -161,5 +228,14 @@ public class CustomerController : Controller
         });
 
         await _context.SaveChangesAsync();
+    }
+
+    private bool CanManageAssignments => User.IsInRole("Admin") || User.IsInRole("Manager");
+
+    private async Task PopulateAssignableOwnersAsync()
+    {
+        ViewBag.AssignableOwners = CanManageAssignments
+            ? await _accessScope.GetActiveSalesExecutivesAsync()
+            : [];
     }
 }

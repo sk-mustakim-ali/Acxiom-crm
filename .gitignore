@@ -11,6 +11,7 @@ obj/
 *.db-shm
 *.db-wal
 *.log
+*.bak
 
 # Project backups
 AcxiomCRM_Backup_*

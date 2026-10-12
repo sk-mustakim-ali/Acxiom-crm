@@ -1,0 +1,9 @@
+@model AcxiomCRM.Models.Activity
+@{ ViewData["Title"] = "Create Activity"; }
+<h2>Create Activity</h2>
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <partial name="_ActivityForm" model="Model" />
+    <button class="btn btn-primary" type="submit">Create</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+</form>

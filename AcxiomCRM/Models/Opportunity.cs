@@ -39,10 +39,12 @@ public class Opportunity
     public string? OwnerId { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public DateTime? ClosedDate { get; set; }
 
     [NotMapped]
     public decimal WeightedPipeline => Amount * Probability / 100m;
 
     public Customer? Customer { get; set; }
     public Lead? Lead { get; set; }
+    public ICollection<FollowUp> FollowUps { get; set; } = new List<FollowUp>();
 }

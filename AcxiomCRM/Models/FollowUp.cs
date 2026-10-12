@@ -8,6 +8,7 @@ public class FollowUp
 
     public int? CustomerId { get; set; }
     public int? LeadId { get; set; }
+    public int? OpportunityId { get; set; }
 
     [Required]
     [DataType(DataType.Date)]
@@ -32,5 +33,5 @@ public class FollowUp
 
     public Customer? Customer { get; set; }
     public Lead? Lead { get; set; }
+    public Opportunity? Opportunity { get; set; }
 }
-

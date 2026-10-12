@@ -1,0 +1,12 @@
+@{ ViewData["Title"] = "Reports"; }
+<h2>Reports</h2>
+<div class="list-group">
+    <a class="list-group-item list-group-item-action" asp-action="Customers">Customer report</a>
+    <a class="list-group-item list-group-item-action" asp-action="Leads">Lead report</a>
+    <a class="list-group-item list-group-item-action" asp-action="FollowUps">Follow-up report</a>
+    <a class="list-group-item list-group-item-action" asp-action="Opportunities">Opportunity report</a>
+    <a class="list-group-item list-group-item-action" asp-action="Pipeline">Pipeline report</a>
+    <a class="list-group-item list-group-item-action" asp-action="Conversion">Conversion report</a>
+    <a class="list-group-item list-group-item-action" asp-action="UserActivity">User activity report</a>
+    @if (User.IsInRole("Admin") || User.IsInRole("Manager")) { <a class="list-group-item list-group-item-action" asp-action="Audit">Audit report</a> }
+</div>

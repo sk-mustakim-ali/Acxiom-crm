@@ -213,6 +213,10 @@ namespace AcxiomCRM.Migrations
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(150)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<DateTime?>("ModifiedDate")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("OwnerId")
@@ -273,6 +277,9 @@ namespace AcxiomCRM.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("OpportunityId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Remarks")
                         .HasColumnType("TEXT");
 
@@ -291,6 +298,8 @@ namespace AcxiomCRM.Migrations
                     b.HasIndex("CustomerId");
 
                     b.HasIndex("LeadId");
+
+                    b.HasIndex("OpportunityId");
 
                     b.ToTable("FollowUps");
                 });
@@ -366,6 +375,9 @@ namespace AcxiomCRM.Migrations
 
                     b.Property<decimal>("Amount")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ClosedDate")
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("TEXT");
@@ -569,9 +581,15 @@ namespace AcxiomCRM.Migrations
                         .WithMany("FollowUps")
                         .HasForeignKey("LeadId");
 
+                    b.HasOne("AcxiomCRM.Models.Opportunity", "Opportunity")
+                        .WithMany("FollowUps")
+                        .HasForeignKey("OpportunityId");
+
                     b.Navigation("Customer");
 
                     b.Navigation("Lead");
+
+                    b.Navigation("Opportunity");
                 });
 
             modelBuilder.Entity("AcxiomCRM.Models.Opportunity", b =>
@@ -658,6 +676,11 @@ namespace AcxiomCRM.Migrations
                     b.Navigation("FollowUps");
 
                     b.Navigation("Opportunities");
+                });
+
+            modelBuilder.Entity("AcxiomCRM.Models.Opportunity", b =>
+                {
+                    b.Navigation("FollowUps");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,0 +1,40 @@
+@model AcxiomCRM.Models.Lead
+@{
+    ViewData["Title"] = "Lead Details";
+}
+
+<h2>@Model.LeadName</h2>
+<dl class="row">
+    <dt class="col-sm-3">Lead code</dt><dd class="col-sm-9">@Model.LeadCode</dd>
+    <dt class="col-sm-3">Company</dt><dd class="col-sm-9">@Model.CompanyName</dd>
+    <dt class="col-sm-3">Email</dt><dd class="col-sm-9">@Model.Email</dd>
+    <dt class="col-sm-3">Phone</dt><dd class="col-sm-9">@Model.Phone</dd>
+    <dt class="col-sm-3">Source</dt><dd class="col-sm-9">@Model.Source</dd>
+    <dt class="col-sm-3">Status</dt><dd class="col-sm-9">@Model.Status</dd>
+    <dt class="col-sm-3">Priority</dt><dd class="col-sm-9">@Model.Priority</dd>
+    <dt class="col-sm-3">Expected value</dt><dd class="col-sm-9">@Model.ExpectedValue.ToString("C")</dd>
+    <dt class="col-sm-3">Notes</dt><dd class="col-sm-9">@Model.Notes</dd>
+</dl>
+<h3>Opportunities</h3>
+<ul>
+    @foreach (var opportunity in Model.Opportunities)
+    {
+        <li><a asp-controller="Opportunity" asp-action="Details" asp-route-id="@opportunity.Id">@opportunity.OpportunityName</a> — @opportunity.Status</li>
+    }
+</ul>
+<h3>Follow-ups</h3>
+<ul>
+    @foreach (var followUp in Model.FollowUps.OrderByDescending(item => item.FollowUpDate))
+    {
+        <li>@followUp.FollowUpDate.ToShortDateString() — @followUp.Subject (@followUp.Status)</li>
+    }
+</ul>
+<h3>Activities</h3>
+<ul>
+    @foreach (var activity in Model.Activities.OrderByDescending(item => item.ActivityDate))
+    {
+        <li>@activity.ActivityDate.ToLocalTime().ToString("g") — @activity.ActivityType: @activity.Subject (@activity.Status)</li>
+    }
+</ul>
+<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+<a asp-action="Index" class="btn btn-secondary">Back</a>

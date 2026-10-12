@@ -29,10 +29,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<Activity>().Property(a => a.Id).HasColumnName("ActivityId");
         builder.Entity<AuditLog>().Property(a => a.Id).HasColumnName("AuditLogId");
 
+        builder.Entity<Customer>().Property(c => c.Email).UseCollation("NOCASE");
         builder.Entity<Customer>().HasIndex(c => c.Email).IsUnique();
         builder.Entity<Customer>().HasIndex(c => c.Phone).IsUnique();
         builder.Entity<Lead>().Property(l => l.ExpectedValue).HasColumnType("decimal(18,2)");
         builder.Entity<Opportunity>().Property(o => o.Amount).HasColumnType("decimal(18,2)");
     }
 }
-

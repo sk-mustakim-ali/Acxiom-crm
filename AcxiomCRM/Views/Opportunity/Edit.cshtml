@@ -1,0 +1,103 @@
+@model AcxiomCRM.Models.Opportunity
+
+@{
+    ViewData["Title"] = "Edit Opportunity";
+    var customers = ViewBag.Customers as IEnumerable<AcxiomCRM.Models.Customer> ?? Enumerable.Empty<AcxiomCRM.Models.Customer>();
+    var owners = ViewBag.AssignableOwners as IEnumerable<AcxiomCRM.Data.ApplicationUser> ?? Enumerable.Empty<AcxiomCRM.Data.ApplicationUser>();
+}
+
+<h2>Edit Opportunity</h2>
+
+<form asp-action="Edit" method="post">
+    <input asp-for="Id" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="OpportunityName" class="form-label"></label>
+            <input asp-for="OpportunityName" class="form-control" />
+            <span asp-validation-for="OpportunityName" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="CustomerId" class="form-label"></label>
+            <select asp-for="CustomerId" class="form-select">
+                <option value="">Select customer</option>
+                @foreach (var customer in customers)
+                {
+                    <option value="@customer.Id">@customer.CustomerName</option>
+                }
+            </select>
+            <span asp-validation-for="CustomerId" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Amount" class="form-label"></label>
+            <input asp-for="Amount" class="form-control" />
+            <span asp-validation-for="Amount" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Probability" class="form-label"></label>
+            <input asp-for="Probability" class="form-control" />
+            <span asp-validation-for="Probability" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Stage" class="form-label"></label>
+            <select asp-for="Stage" class="form-select">
+                @foreach (var stage in AcxiomCRM.Services.CrmWorkflowRules.OpportunityStages)
+                {
+                    <option value="@stage">@stage</option>
+                }
+            </select>
+            <span asp-validation-for="Stage" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Status" class="form-label"></label>
+            <select asp-for="Status" class="form-select">
+                @foreach (var status in AcxiomCRM.Services.CrmWorkflowRules.OpportunityStatuses)
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
+            <span asp-validation-for="Status" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="ExpectedCloseDate" class="form-label"></label>
+            <input asp-for="ExpectedCloseDate" class="form-control" type="date" />
+            <span asp-validation-for="ExpectedCloseDate" class="text-danger"></span>
+        </div>
+        <div class="col-12">
+            <label asp-for="Notes" class="form-label"></label>
+            <textarea asp-for="Notes" class="form-control"></textarea>
+        </div>
+        @if (User.IsInRole("Admin") || User.IsInRole("Manager"))
+        {
+            <div class="col-md-6">
+                <label asp-for="OwnerId" class="form-label">Opportunity owner</label>
+                <select asp-for="OwnerId" class="form-select">
+                    <option value="">Select an active Sales Executive</option>
+                    @foreach (var owner in owners)
+                    {
+                        <option value="@owner.Id">@owner.FullName (@owner.Email)</option>
+                    }
+                </select>
+                <span asp-validation-for="OwnerId" class="text-danger"></span>
+            </div>
+        }
+    </div>
+    <div class="mt-3">
+        <button type="submit" class="btn btn-primary">Update</button>
+        <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.getElementById('Stage')?.addEventListener('change', event => {
+            const status = document.getElementById('Status');
+            if (event.target.value === 'Won' || event.target.value === 'Lost') {
+                status.value = event.target.value;
+            } else if (status.value !== 'Open') {
+                status.value = 'Open';
+            }
+        });
+    </script>
+}

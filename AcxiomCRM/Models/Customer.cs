@@ -21,6 +21,7 @@ public class Customer
 
     [Required]
     [Phone]
+    [RegularExpression(@"^(?=(?:\D*\d){7,15}\D*$)\+?[0-9][0-9(). -]*$", ErrorMessage = "Enter a valid phone number.")]
     [StringLength(20)]
     public string Phone { get; set; } = string.Empty;
 
@@ -44,9 +45,9 @@ public class Customer
     public string? OwnerId { get; set; }
     public string? CreatedBy { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public DateTime? ModifiedDate { get; set; }
 
     public ICollection<Opportunity> Opportunities { get; set; } = new List<Opportunity>();
     public ICollection<FollowUp> FollowUps { get; set; } = new List<FollowUp>();
     public ICollection<Activity> Activities { get; set; } = new List<Activity>();
 }
-

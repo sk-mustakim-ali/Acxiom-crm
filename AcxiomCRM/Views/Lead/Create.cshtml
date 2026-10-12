@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Create Lead";
+    var owners = ViewBag.AssignableOwners as IEnumerable<AcxiomCRM.Data.ApplicationUser> ?? Enumerable.Empty<AcxiomCRM.Data.ApplicationUser>();
 }
 
 <h2>Create Lead</h2>
@@ -34,12 +35,13 @@
             <input asp-for="Source" class="form-control" />
         </div>
         <div class="col-md-3">
-            <label asp-for="Status" class="form-label"></label>
-            <input asp-for="Status" class="form-control" />
-        </div>
-        <div class="col-md-3">
             <label asp-for="Priority" class="form-label"></label>
-            <input asp-for="Priority" class="form-control" />
+            <select asp-for="Priority" class="form-select">
+                @foreach (var priority in AcxiomCRM.Services.CrmWorkflowRules.LeadPriorities)
+                {
+                    <option value="@priority">@priority</option>
+                }
+            </select>
         </div>
         <div class="col-md-3">
             <label asp-for="ExpectedValue" class="form-label"></label>
@@ -50,6 +52,20 @@
             <label asp-for="Notes" class="form-label"></label>
             <textarea asp-for="Notes" class="form-control"></textarea>
         </div>
+        @if (User.IsInRole("Admin") || User.IsInRole("Manager"))
+        {
+            <div class="col-md-6">
+                <label asp-for="AssignedToId" class="form-label">Assigned Sales Executive</label>
+                <select asp-for="AssignedToId" class="form-select">
+                    <option value="">Select an active Sales Executive</option>
+                    @foreach (var owner in owners)
+                    {
+                        <option value="@owner.Id">@owner.FullName (@owner.Email)</option>
+                    }
+                </select>
+                <span asp-validation-for="AssignedToId" class="text-danger"></span>
+            </div>
+        }
     </div>
 
     <div class="mt-3">

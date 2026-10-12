@@ -1,0 +1,46 @@
+@model IEnumerable<AcxiomCRM.Models.Activity>
+
+@{
+    ViewData["Title"] = "Activities";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Activities</h2>
+    <a asp-action="Create" class="btn btn-primary">Add Activity</a>
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-3"><input class="form-control" name="search" value="@ViewBag.Search" placeholder="Search subject, customer or lead" /></div>
+    <div class="col-md-2">
+        <select class="form-select" name="type"><option value="">All types</option>@foreach (var value in new[] { "Call", "Email", "Meeting", "Task" }) { <option value="@value" selected="@(ViewBag.Type as string == value)">@value</option> }</select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" name="status"><option value="">All statuses</option>@foreach (var value in new[] { "Planned", "In Progress", "Completed", "Cancelled" }) { <option value="@value" selected="@(ViewBag.Status as string == value)">@value</option> }</select>
+    </div>
+    <div class="col-md-2"><input class="form-control" type="date" name="from" value="@ViewBag.From" /></div>
+    <div class="col-md-2"><input class="form-control" type="date" name="to" value="@ViewBag.To" /></div>
+    <div class="col-md-1"><button class="btn btn-outline-primary w-100" type="submit">Filter</button></div>
+    @if (User.IsInRole("Admin") || User.IsInRole("Manager"))
+    {
+        <div class="col-md-3">
+            <select class="form-select" name="assignee"><option value="">All assignees</option>@foreach (var user in (IEnumerable<AcxiomCRM.Controllers.AssigneeOptionViewModel>)ViewBag.Users) { <option value="@user.Id" selected="@(ViewBag.Assignee as string == user.Id)">@user.Name</option> }</select>
+        </div>
+    }
+</form>
+<div class="table-responsive">
+    <table class="table table-striped table-bordered align-middle">
+        <thead class="table-dark"><tr><th>Date</th><th>Type</th><th>Subject</th><th>Customer / Lead</th><th>Assigned to</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.ActivityDate.ToString("g")</td><td>@item.ActivityType</td><td>@item.Subject</td>
+                <td>@(item.Customer?.CustomerName ?? item.Lead?.LeadName ?? "-")</td>
+                <td>@(item.AssignedToId != null && ((IDictionary<string, string>)ViewBag.AssigneeNames).TryGetValue(item.AssignedToId, out var assigneeName) ? assigneeName : "Unassigned")</td>
+                <td>@item.Status</td>
+                <td><a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="d-inline">@Html.AntiForgeryToken()<button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('Delete this activity?');">Delete</button></form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

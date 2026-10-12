@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using AcxiomCRM.Data;
 using AcxiomCRM.Models;
+using AcxiomCRM.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,21 +12,33 @@ namespace AcxiomCRM.Controllers;
 public class OpportunityController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly CrmAccessScope _accessScope;
 
-    public OpportunityController(ApplicationDbContext context)
+    public OpportunityController(ApplicationDbContext context, CrmAccessScope accessScope)
     {
         _context = context;
+        _accessScope = accessScope;
     }
 
-    public async Task<IActionResult> Index(string? stage, string? search)
+    public async Task<IActionResult> Index(string? stage, string? status, string? search, string? ownerId)
     {
-        var query = _context.Opportunities
+        var query = _accessScope.Opportunities()
             .Include(o => o.Customer)
             .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(ownerId))
+        {
+            query = query.Where(opportunity => opportunity.OwnerId == ownerId);
+        }
 
         if (!string.IsNullOrWhiteSpace(stage))
         {
             query = query.Where(o => o.Stage == stage);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query = query.Where(o => o.Status == status);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -35,20 +48,37 @@ public class OpportunityController : Controller
         }
 
         var opportunities = await query.OrderByDescending(o => o.CreatedDate).ToListAsync();
+        ViewBag.OwnerId = ownerId;
+        if (CanManageAssignments)
+        {
+            ViewBag.AssignableOwners = await _accessScope.GetActiveSalesExecutivesAsync();
+        }
         return View(opportunities);
     }
 
     public async Task<IActionResult> Create()
     {
-        ViewBag.Customers = await _context.Customers.OrderBy(c => c.CustomerName).ToListAsync();
-        return View(new Opportunity());
+        ViewBag.Customers = await _accessScope.Customers().OrderBy(c => c.CustomerName).ToListAsync();
+        await PopulateAssignableOwnersAsync();
+        return View(new Opportunity { OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier) });
+    }
+
+    public async Task<IActionResult> Details(int id)
+    {
+        var opportunity = await _accessScope.Opportunities()
+            .Include(item => item.Customer)
+            .Include(item => item.Lead)
+            .Include(item => item.FollowUps)
+            .FirstOrDefaultAsync(item => item.Id == id);
+        return opportunity == null ? NotFound() : View(opportunity);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(Opportunity opportunity)
     {
-        ViewBag.Customers = await _context.Customers.OrderBy(c => c.CustomerName).ToListAsync();
+        ViewBag.Customers = await _accessScope.Customers().OrderBy(c => c.CustomerName).ToListAsync();
+        await PopulateAssignableOwnersAsync();
 
         if (!ModelState.IsValid)
         {
@@ -67,14 +97,37 @@ public class OpportunityController : Controller
             return View(opportunity);
         }
 
-        if (IsActiveOpportunityStatus(opportunity.Status) && opportunity.ExpectedCloseDate.Date < DateTime.Today)
+        if (!CrmWorkflowRules.IsValidOpportunityStage(opportunity.Stage)
+            || !CrmWorkflowRules.IsValidOpportunityStatus(opportunity.Status)
+            || !CrmWorkflowRules.OpportunityStageMatchesStatus(opportunity.Stage, opportunity.Status))
+        {
+            ModelState.AddModelError(nameof(Opportunity.Stage), "Select a valid pipeline stage and matching status.");
+            return View(opportunity);
+        }
+
+        if (CrmWorkflowRules.IsActiveOpportunityStatus(opportunity.Status) && opportunity.ExpectedCloseDate.Date < DateTime.Today)
         {
             ModelState.AddModelError(nameof(Opportunity.ExpectedCloseDate), "Expected Close Date cannot be in the past.");
             return View(opportunity);
         }
 
-        opportunity.OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!await _accessScope.CanAccessCustomerAsync(opportunity.CustomerId))
+        {
+            ModelState.AddModelError(nameof(Opportunity.CustomerId), "Select a customer you are authorized to manage.");
+            return View(opportunity);
+        }
+
+        opportunity.OwnerId = CanManageAssignments
+            ? opportunity.OwnerId
+            : User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!await _accessScope.IsActiveSalesExecutiveAsync(opportunity.OwnerId))
+        {
+            ModelState.AddModelError(nameof(Opportunity.OwnerId), "Assign the opportunity to an active Sales Executive.");
+            return View(opportunity);
+        }
+
         opportunity.CreatedDate = DateTime.UtcNow;
+        opportunity.ClosedDate = CrmWorkflowRules.IsActiveOpportunityStatus(opportunity.Status) ? null : DateTime.UtcNow;
 
         _context.Opportunities.Add(opportunity);
         await _context.SaveChangesAsync();
@@ -84,13 +137,14 @@ public class OpportunityController : Controller
 
     public async Task<IActionResult> Edit(int id)
     {
-        var opportunity = await _context.Opportunities.FindAsync(id);
+        var opportunity = await _accessScope.Opportunities().FirstOrDefaultAsync(o => o.Id == id);
         if (opportunity == null)
         {
             return NotFound();
         }
 
-        ViewBag.Customers = await _context.Customers.OrderBy(c => c.CustomerName).ToListAsync();
+        ViewBag.Customers = await _accessScope.Customers().OrderBy(c => c.CustomerName).ToListAsync();
+        await PopulateAssignableOwnersAsync();
         return View(opportunity);
     }
 
@@ -103,14 +157,15 @@ public class OpportunityController : Controller
             return BadRequest();
         }
 
-        ViewBag.Customers = await _context.Customers.OrderBy(c => c.CustomerName).ToListAsync();
+        ViewBag.Customers = await _accessScope.Customers().OrderBy(c => c.CustomerName).ToListAsync();
+        await PopulateAssignableOwnersAsync();
 
         if (!ModelState.IsValid)
         {
             return View(opportunity);
         }
 
-        var existing = await _context.Opportunities.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id);
+        var existing = await _accessScope.Opportunities().AsNoTracking().FirstOrDefaultAsync(o => o.Id == id);
         if (existing == null)
         {
             return NotFound();
@@ -128,14 +183,44 @@ public class OpportunityController : Controller
             return View(opportunity);
         }
 
-        if (IsActiveOpportunityStatus(opportunity.Status) && opportunity.ExpectedCloseDate.Date < DateTime.Today)
+        if (!CrmWorkflowRules.IsValidOpportunityStage(opportunity.Stage)
+            || !CrmWorkflowRules.IsValidOpportunityStatus(opportunity.Status)
+            || !CrmWorkflowRules.OpportunityStageMatchesStatus(opportunity.Stage, opportunity.Status))
+        {
+            ModelState.AddModelError(nameof(Opportunity.Stage), "Select a valid pipeline stage and matching status.");
+            return View(opportunity);
+        }
+
+        if (!CrmWorkflowRules.CanTransitionOpportunityStage(existing.Stage, opportunity.Stage))
+        {
+            ModelState.AddModelError(nameof(Opportunity.Stage), $"Opportunity stage cannot transition from {existing.Stage} to {opportunity.Stage}.");
+            return View(opportunity);
+        }
+
+        if (CrmWorkflowRules.IsActiveOpportunityStatus(opportunity.Status) && opportunity.ExpectedCloseDate.Date < DateTime.Today)
         {
             ModelState.AddModelError(nameof(Opportunity.ExpectedCloseDate), "Expected Close Date cannot be in the past.");
             return View(opportunity);
         }
 
-        opportunity.OwnerId = existing.OwnerId;
+        if (!await _accessScope.CanAccessCustomerAsync(opportunity.CustomerId))
+        {
+            ModelState.AddModelError(nameof(Opportunity.CustomerId), "Select a customer you are authorized to manage.");
+            return View(opportunity);
+        }
+
+        opportunity.OwnerId = CanManageAssignments ? opportunity.OwnerId : existing.OwnerId;
+        if (opportunity.OwnerId != existing.OwnerId
+            && !await _accessScope.IsActiveSalesExecutiveAsync(opportunity.OwnerId))
+        {
+            ModelState.AddModelError(nameof(Opportunity.OwnerId), "Assign the opportunity to an active Sales Executive.");
+            return View(opportunity);
+        }
+
         opportunity.CreatedDate = existing.CreatedDate;
+        opportunity.ClosedDate = opportunity.Status.Equals("Open", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : existing.ClosedDate ?? DateTime.UtcNow;
 
         _context.Update(opportunity);
         await _context.SaveChangesAsync();
@@ -144,24 +229,11 @@ public class OpportunityController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private static bool IsActiveOpportunityStatus(string status)
-    {
-        if (string.IsNullOrWhiteSpace(status))
-        {
-            return false;
-        }
-
-        return status.Equals("Open", StringComparison.OrdinalIgnoreCase)
-            || status.Equals("Qualification", StringComparison.OrdinalIgnoreCase)
-            || status.Equals("Proposal", StringComparison.OrdinalIgnoreCase)
-            || status.Equals("Negotiation", StringComparison.OrdinalIgnoreCase);
-    }
-
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
-        var opportunity = await _context.Opportunities.FindAsync(id);
+        var opportunity = await _accessScope.Opportunities().FirstOrDefaultAsync(o => o.Id == id);
         if (opportunity == null)
         {
             return NotFound();
@@ -188,5 +260,14 @@ public class OpportunityController : Controller
         });
 
         await _context.SaveChangesAsync();
+    }
+
+    private bool CanManageAssignments => User.IsInRole("Admin") || User.IsInRole("Manager");
+
+    private async Task PopulateAssignableOwnersAsync()
+    {
+        ViewBag.AssignableOwners = CanManageAssignments
+            ? await _accessScope.GetActiveSalesExecutivesAsync()
+            : new List<ApplicationUser>();
     }
 }

@@ -2,6 +2,10 @@
 
 @{
     ViewData["Title"] = "Create Follow-Up";
+    var customers = ViewBag.Customers as IEnumerable<AcxiomCRM.Models.Customer> ?? Enumerable.Empty<AcxiomCRM.Models.Customer>();
+    var leads = ViewBag.Leads as IEnumerable<AcxiomCRM.Models.Lead> ?? Enumerable.Empty<AcxiomCRM.Models.Lead>();
+    var opportunities = ViewBag.Opportunities as IEnumerable<AcxiomCRM.Models.Opportunity> ?? Enumerable.Empty<AcxiomCRM.Models.Opportunity>();
+    var assignees = ViewBag.Assignees as IEnumerable<AcxiomCRM.Data.ApplicationUser> ?? Enumerable.Empty<AcxiomCRM.Data.ApplicationUser>();
 }
 
 <h2>Schedule Follow-Up</h2>
@@ -16,7 +20,12 @@
         </div>
         <div class="col-md-6">
             <label asp-for="FollowUpType" class="form-label"></label>
-            <input asp-for="FollowUpType" class="form-control" />
+            <select asp-for="FollowUpType" class="form-select">
+                @foreach (var type in ViewBag.FollowUpTypes as IEnumerable<string> ?? Array.Empty<string>())
+                {
+                    <option value="@type">@type</option>
+                }
+            </select>
         </div>
         <div class="col-md-4">
             <label asp-for="FollowUpDate" class="form-label"></label>
@@ -25,16 +34,61 @@
         </div>
         <div class="col-md-4">
             <label asp-for="Status" class="form-label"></label>
-            <input asp-for="Status" class="form-control" />
+            <select asp-for="Status" class="form-select">
+                @foreach (var status in ViewBag.FollowUpStatuses as IEnumerable<string> ?? Array.Empty<string>())
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
         </div>
         <div class="col-md-4">
-            <label asp-for="CustomerId" class="form-label"></label>
-            <input asp-for="CustomerId" class="form-control" />
+            <label asp-for="CustomerId" class="form-label">Related customer (choose one related record)</label>
+            <select asp-for="CustomerId" class="form-select">
+                <option value="">None</option>
+                @foreach (var customer in customers)
+                {
+                    <option value="@customer.Id">@customer.CustomerName</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="LeadId" class="form-label">Related lead</label>
+            <select asp-for="LeadId" class="form-select">
+                <option value="">None</option>
+                @foreach (var lead in leads)
+                {
+                    <option value="@lead.Id">@lead.LeadName</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="OpportunityId" class="form-label">Related opportunity</label>
+            <select asp-for="OpportunityId" class="form-select">
+                <option value="">None</option>
+                @foreach (var opportunity in opportunities)
+                {
+                    <option value="@opportunity.Id">@opportunity.OpportunityName</option>
+                }
+            </select>
         </div>
         <div class="col-12">
             <label asp-for="Notes" class="form-label"></label>
             <textarea asp-for="Notes" class="form-control"></textarea>
         </div>
+        @if (User.IsInRole("Admin") || User.IsInRole("Manager"))
+        {
+            <div class="col-md-6">
+                <label asp-for="AssignedToId" class="form-label">Assigned user</label>
+                <select asp-for="AssignedToId" class="form-select">
+                    <option value="">Select an active user</option>
+                    @foreach (var assignee in assignees)
+                    {
+                        <option value="@assignee.Id">@assignee.FullName (@assignee.Email)</option>
+                    }
+                </select>
+                <span asp-validation-for="AssignedToId" class="text-danger"></span>
+            </div>
+        }
     </div>
 
     <div class="mt-3">

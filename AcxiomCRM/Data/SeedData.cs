@@ -15,16 +15,29 @@ public static class SeedData
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
-                await roleManager.CreateAsync(new IdentityRole(role));
+                var result = await roleManager.CreateAsync(new IdentityRole(role));
+                if (!result.Succeeded)
+                {
+                    throw new InvalidOperationException($"Failed to create role {role}: {string.Join(", ", result.Errors.Select(error => error.Description))}");
+                }
             }
         }
 
-        await EnsureUserAsync(userManager, "admin@acxiomcrm.com", "System Administrator", "Admin", "Admin@123");
-        await EnsureUserAsync(userManager, "manager@acxiomcrm.com", "Regional Manager", "Manager", "Manager@123");
-        await EnsureUserAsync(userManager, "sales@acxiomcrm.com", "Sales Executive", "SalesExecutive", "Sales@123");
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var adminEmail = configuration["BootstrapAdmin:Email"];
+        var adminPassword = configuration["BootstrapAdmin:Password"];
+        if (string.IsNullOrWhiteSpace(adminEmail) != string.IsNullOrWhiteSpace(adminPassword))
+        {
+            throw new InvalidOperationException("Configure both BootstrapAdmin:Email and BootstrapAdmin:Password, or neither.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(adminEmail) && !string.IsNullOrWhiteSpace(adminPassword))
+        {
+            await EnsureAdminAsync(userManager, adminEmail.Trim(), adminPassword);
+        }
     }
 
-    private static async Task EnsureUserAsync(UserManager<ApplicationUser> userManager, string email, string fullName, string role, string password)
+    private static async Task EnsureAdminAsync(UserManager<ApplicationUser> userManager, string email, string password)
     {
         var user = await userManager.FindByEmailAsync(email);
         if (user == null)
@@ -33,7 +46,7 @@ public static class SeedData
             {
                 UserName = email,
                 Email = email,
-                FullName = fullName,
+                FullName = "System Administrator",
                 EmailConfirmed = true,
                 IsActive = true
             };
@@ -48,12 +61,20 @@ public static class SeedData
         if (!user.IsActive)
         {
             user.IsActive = true;
-            await userManager.UpdateAsync(user);
+            var result = await userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                throw new InvalidOperationException($"Failed to activate bootstrap administrator {email}: {string.Join(", ", result.Errors.Select(error => error.Description))}");
+            }
         }
 
-        if (!await userManager.IsInRoleAsync(user, role))
+        if (!await userManager.IsInRoleAsync(user, "Admin"))
         {
-            await userManager.AddToRoleAsync(user, role);
+            var result = await userManager.AddToRoleAsync(user, "Admin");
+            if (!result.Succeeded)
+            {
+                throw new InvalidOperationException($"Failed to assign Admin role to {email}: {string.Join(", ", result.Errors.Select(error => error.Description))}");
+            }
         }
     }
 }

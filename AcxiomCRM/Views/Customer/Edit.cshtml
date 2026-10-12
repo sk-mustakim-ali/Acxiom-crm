@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Edit Customer";
+    var owners = ViewBag.AssignableOwners as IEnumerable<AcxiomCRM.Data.ApplicationUser> ?? Enumerable.Empty<AcxiomCRM.Data.ApplicationUser>();
 }
 
 <h2>Edit Customer</h2>
@@ -41,8 +42,28 @@
         </div>
         <div class="col-md-4">
             <label asp-for="Status" class="form-label"></label>
-            <input asp-for="Status" class="form-control" />
+            <select asp-for="Status" class="form-select">
+                @foreach (var status in AcxiomCRM.Services.CrmWorkflowRules.CustomerStatuses)
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
+            <span asp-validation-for="Status" class="text-danger"></span>
         </div>
+        @if (User.IsInRole("Admin") || User.IsInRole("Manager"))
+        {
+            <div class="col-md-6">
+                <label asp-for="OwnerId" class="form-label">Assigned Sales Executive</label>
+                <select asp-for="OwnerId" class="form-select">
+                    <option value="">Select an active Sales Executive</option>
+                    @foreach (var owner in owners)
+                    {
+                        <option value="@owner.Id">@owner.FullName (@owner.Email)</option>
+                    }
+                </select>
+                <span asp-validation-for="OwnerId" class="text-danger"></span>
+            </div>
+        }
         <div class="col-12">
             <label asp-for="Address" class="form-label"></label>
             <textarea asp-for="Address" class="form-control"></textarea>
