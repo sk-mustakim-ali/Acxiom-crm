@@ -1,0 +1,171 @@
+@model AcxiomCRM.Models.DashboardViewModel
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Dashboard";
+    var leadLabels = JsonSerializer.Serialize(Model.LeadStatusCounts.Select(x => x.Key).ToArray());
+    var leadValues = JsonSerializer.Serialize(Model.LeadStatusCounts.Select(x => x.Value).ToArray());
+    var opportunityLabels = JsonSerializer.Serialize(Model.OpportunityStageCounts.Select(x => x.Key).ToArray());
+    var opportunityValues = JsonSerializer.Serialize(Model.OpportunityStageCounts.Select(x => x.Value).ToArray());
+    var salesLabels = JsonSerializer.Serialize(Model.MonthlySales.Select(x => x.Key).ToArray());
+    var salesValues = JsonSerializer.Serialize(Model.MonthlySales.Select(x => x.Value).ToArray());
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0">CRM Dashboard</h2>
+        <small class="text-muted">Role-aware performance summary</small>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Total Customers</div>
+                <h3 class="mt-2">@Model.TotalCustomers</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Total Leads</div>
+                <h3 class="mt-2">@Model.TotalLeads</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Open Leads</div>
+                <h3 class="mt-2">@Model.OpenLeads</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Pipeline Value</div>
+                <h3 class="mt-2">@Model.TotalPipelineValue.ToString("C")</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Open Opportunities</div>
+                <h3 class="mt-2">@Model.OpenOpportunities</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Won Opportunities</div>
+                <h3 class="mt-2">@Model.WonOpportunities</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Lost Opportunities</div>
+                <h3 class="mt-2">@Model.LostOpportunities</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Total Opportunities</div>
+                <h3 class="mt-2">@Model.TotalOpportunities</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-2">
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <h5 class="card-title">Lead Status</h5>
+                <div class="dashboard-chart-container">
+                    <canvas id="leadStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <h5 class="card-title">Opportunity Pipeline</h5>
+                <div class="dashboard-chart-container">
+                    <canvas id="opportunityChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <h5 class="card-title">Monthly Sales</h5>
+                <div class="dashboard-chart-container">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const leadLabels = @Html.Raw(leadLabels);
+        const leadValues = @Html.Raw(leadValues);
+        const opportunityLabels = @Html.Raw(opportunityLabels);
+        const opportunityValues = @Html.Raw(opportunityValues);
+        const salesLabels = @Html.Raw(salesLabels);
+        const salesValues = @Html.Raw(salesValues);
+
+        new Chart(document.getElementById('leadStatusChart'), {
+            type: 'bar',
+            data: {
+                labels: leadLabels,
+                datasets: [{
+                    label: 'Leads',
+                    data: leadValues,
+                    backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b']
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        new Chart(document.getElementById('opportunityChart'), {
+            type: 'doughnut',
+            data: {
+                labels: opportunityLabels,
+                datasets: [{
+                    data: opportunityValues,
+                    backgroundColor: ['#2e59d9', '#00b894', '#fdcb6e', '#e17055', '#6c5ce7']
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        new Chart(document.getElementById('salesChart'), {
+            type: 'line',
+            data: {
+                labels: salesLabels,
+                datasets: [{
+                    label: 'Sales Amount',
+                    data: salesValues,
+                    fill: false,
+                    borderColor: '#198754',
+                    tension: 0.2
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    </script>
+}

@@ -1,0 +1,41 @@
+@model IEnumerable<AcxiomCRM.Models.FollowUp>
+
+@{
+    ViewData["Title"] = "Follow-Ups";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Follow-Ups</h2>
+    <a class="btn btn-primary" asp-action="Create">Schedule Follow-Up</a>
+</div>
+
+<table class="table table-striped table-bordered align-middle">
+    <thead class="table-dark">
+        <tr>
+            <th>Subject</th>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var followUp in Model)
+        {
+            <tr>
+                <td>@followUp.Subject</td>
+                <td>@followUp.FollowUpDate.ToShortDateString()</td>
+                <td>@followUp.FollowUpType</td>
+                <td>@followUp.Status</td>
+                <td>@followUp.Notes</td>
+                <td>
+                    <form asp-action="Delete" asp-route-id="@followUp.Id" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this follow-up?');">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

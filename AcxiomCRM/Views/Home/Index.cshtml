@@ -1,0 +1,101 @@
+﻿@{
+    ViewData["Title"] = "AcxiomCRM";
+}
+
+<div class="crm-home">
+    <section class="crm-home-hero">
+        <div class="crm-home-copy">
+            <p class="crm-home-kicker">CUSTOMER RELATIONSHIP MANAGEMENT</p>
+            <h1>Make every customer relationship count.</h1>
+            <p class="crm-home-intro">
+                AcxiomCRM brings customer records, leads, opportunities, and follow-ups together so your team can see what matters and keep work moving.
+            </p>
+            <a class="crm-text-link" href="#crm-overview">Explore the workspace <span aria-hidden="true">&darr;</span></a>
+        </div>
+
+        <div class="crm-product-preview" aria-label="Preview of the AcxiomCRM sales pipeline">
+            <div class="crm-preview-topline">
+                <span>ACXIOMCRM / PIPELINE</span>
+                <span class="crm-live-indicator">TEAM VIEW</span>
+            </div>
+            <div class="crm-preview-summary">
+                <div>
+                    <p>OPPORTUNITY WORKSPACE</p>
+                    <h2>Clear view. Next move.</h2>
+                </div>
+                <div class="crm-preview-mark" aria-hidden="true">A</div>
+            </div>
+            <div class="crm-preview-columns">
+                <div class="crm-preview-stage">
+                    <span class="crm-stage-dot crm-stage-lead"></span>
+                    <span>New leads</span>
+                    <strong>Capture</strong>
+                </div>
+                <div class="crm-preview-stage">
+                    <span class="crm-stage-dot crm-stage-deal"></span>
+                    <span>Opportunities</span>
+                    <strong>Advance</strong>
+                </div>
+                <div class="crm-preview-stage">
+                    <span class="crm-stage-dot crm-stage-followup"></span>
+                    <span>Follow-ups</span>
+                    <strong>Deliver</strong>
+                </div>
+            </div>
+            <div class="crm-preview-footer">
+                <span>One connected view of your sales work</span>
+                <span aria-hidden="true">01 / 03</span>
+            </div>
+        </div>
+    </section>
+
+    <section id="crm-overview" class="crm-overview">
+        <div class="crm-section-heading">
+            <p class="crm-home-kicker">THE WORKSPACE</p>
+            <h2>From first conversation to lasting customer.</h2>
+        </div>
+        <div class="crm-capabilities">
+            <article class="crm-capability">
+                <span class="crm-capability-number">01</span>
+                <h3>Know your customers</h3>
+                <p>Keep contact details and relationship history organized in one searchable customer workspace.</p>
+            </article>
+            <article class="crm-capability">
+                <span class="crm-capability-number">02</span>
+                <h3>Move opportunities forward</h3>
+                <p>Track leads, deal stages, and pipeline value so the next priority is easier to spot.</p>
+            </article>
+            <article class="crm-capability">
+                <span class="crm-capability-number">03</span>
+                <h3>Stay on top of follow-ups</h3>
+                <p>Schedule the next action and give your team a shared view of work that needs attention.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="crm-home-access" aria-labelledby="crm-access-title">
+        <div>
+            <p class="crm-home-kicker">GET STARTED</p>
+            <h2 id="crm-access-title">Bring your customer work into focus.</h2>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <p>Your workspace is ready when you are.</p>
+            }
+            else
+            {
+                <p>Sign in to your workspace, or create an account to get started.</p>
+            }
+        </div>
+        <div class="crm-access-actions">
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a class="btn crm-button-primary" asp-controller="Dashboard" asp-action="Index">Open dashboard</a>
+            }
+            else
+            {
+                <a class="btn crm-button-primary" asp-area="Identity" asp-page="/Account/Login">Log in</a>
+                <a class="btn crm-button-secondary" asp-area="Identity" asp-page="/Account/Register">Sign up</a>
+            }
+        </div>
+    </section>
+</div>

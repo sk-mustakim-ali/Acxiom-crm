@@ -1,0 +1,26 @@
+﻿# .NET build artifacts
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.cache
+*.pdb
+*.dll
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Project backups
+AcxiomCRM_Backup_*
+AcxiomCRM_ModelsBackup_*
+
+# Python cache
+.venv/
+__pycache__/
+*.pyc
+
+# OS files
+.DS_Store
+Thumbs.db

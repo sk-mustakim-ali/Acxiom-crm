@@ -1,0 +1,342 @@
+html {
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  margin-bottom: 60px;
+}
+
+.dashboard-chart-container {
+  position: relative;
+  height: 220px;
+}
+
+.crm-home {
+  --crm-ink: #173c35;
+  --crm-muted: #596b65;
+  --crm-paper: #f6f7f0;
+  --crm-coral: #e66f4d;
+  color: var(--crm-ink);
+}
+
+.crm-home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr);
+  align-items: center;
+  gap: clamp(2rem, 6vw, 5rem);
+  min-height: 430px;
+  padding: clamp(2rem, 6vw, 5rem);
+  background:
+    linear-gradient(115deg, rgba(246, 247, 240, 0.96), rgba(235, 242, 231, 0.92)),
+    repeating-linear-gradient(135deg, transparent 0 18px, rgba(23, 60, 53, 0.035) 18px 19px);
+}
+
+.crm-home-copy {
+  max-width: 560px;
+}
+
+.crm-home-kicker {
+  margin: 0 0 1rem;
+  color: #b25339;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.crm-home-copy h1,
+.crm-section-heading h2,
+.crm-home-access h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.crm-home-copy h1 {
+  max-width: 540px;
+  margin: 0;
+  font-size: clamp(2.6rem, 5vw, 4.5rem);
+  line-height: 1.04;
+}
+
+.crm-home-intro {
+  max-width: 500px;
+  margin: 1.35rem 0 1.5rem;
+  color: var(--crm-muted);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.crm-text-link {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--crm-ink);
+  font-weight: 700;
+  text-decoration-color: var(--crm-coral);
+  text-underline-offset: 0.35rem;
+}
+
+.crm-product-preview {
+  min-width: 0;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  color: #f7f5e9;
+  background: #173c35;
+  box-shadow: 14px 16px 0 rgba(230, 111, 77, 0.18);
+}
+
+.crm-preview-topline,
+.crm-preview-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #b9ccc0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.crm-live-indicator {
+  color: #f5c66d;
+}
+
+.crm-preview-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin: 2.5rem 0 2rem;
+}
+
+.crm-preview-summary p {
+  margin: 0 0 0.45rem;
+  color: #b9ccc0;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.crm-preview-summary h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  font-weight: 500;
+}
+
+.crm-preview-mark {
+  display: grid;
+  flex: 0 0 48px;
+  width: 48px;
+  aspect-ratio: 1;
+  place-items: center;
+  color: var(--crm-ink);
+  background: #f5c66d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.6rem;
+}
+
+.crm-preview-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid rgba(247, 245, 233, 0.24);
+  border-bottom: 1px solid rgba(247, 245, 233, 0.24);
+}
+
+.crm-preview-stage {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.2rem 0.85rem 1.2rem 0;
+  color: #b9ccc0;
+  font-size: 0.77rem;
+}
+
+.crm-preview-stage + .crm-preview-stage {
+  padding-left: 0.85rem;
+  border-left: 1px solid rgba(247, 245, 233, 0.24);
+}
+
+.crm-preview-stage strong {
+  color: #f7f5e9;
+  font-size: 0.95rem;
+}
+
+.crm-stage-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.crm-stage-lead {
+  background: #f5c66d;
+}
+
+.crm-stage-deal {
+  background: #80c6ad;
+}
+
+.crm-stage-followup {
+  background: var(--crm-coral);
+}
+
+.crm-preview-footer {
+  margin-top: 1rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.02em;
+}
+
+.crm-overview {
+  padding: clamp(3rem, 7vw, 5.5rem) 0;
+}
+
+.crm-section-heading {
+  max-width: 620px;
+  margin-bottom: 2.5rem;
+}
+
+.crm-section-heading h2,
+.crm-home-access h2 {
+  margin: 0;
+  font-size: clamp(2rem, 3.8vw, 3rem);
+  line-height: 1.12;
+}
+
+.crm-capabilities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2rem;
+}
+
+.crm-capability {
+  padding-top: 1.15rem;
+  border-top: 2px solid #d8dfd7;
+}
+
+.crm-capability-number {
+  color: #b25339;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.crm-capability h3 {
+  margin: 1rem 0 0.6rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.crm-capability p,
+.crm-home-access p:last-of-type {
+  margin: 0;
+  color: var(--crm-muted);
+  line-height: 1.65;
+}
+
+.crm-home-access {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  padding: clamp(2rem, 5vw, 3.5rem);
+  color: #f7f5e9;
+  background: #173c35;
+}
+
+.crm-home-access .crm-home-kicker {
+  color: #f5c66d;
+}
+
+.crm-home-access h2 {
+  max-width: 620px;
+}
+
+.crm-home-access p:last-of-type {
+  margin-top: 0.8rem;
+  color: #c5d4ca;
+}
+
+.crm-access-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.75rem;
+}
+
+.crm-button-primary,
+.crm-button-secondary {
+  min-width: 104px;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+}
+
+.crm-button-primary {
+  color: #173c35;
+  background: #f5c66d;
+  border-color: #f5c66d;
+}
+
+.crm-button-primary:hover {
+  color: #173c35;
+  background: #ffd889;
+  border-color: #ffd889;
+}
+
+.crm-button-secondary {
+  color: #f7f5e9;
+  border-color: rgba(247, 245, 233, 0.55);
+}
+
+.crm-button-secondary:hover {
+  color: #173c35;
+  background: #f7f5e9;
+}
+
+@media (max-width: 767.98px) {
+  .crm-home-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+    min-height: auto;
+    padding: 2rem 1.5rem;
+  }
+
+  .crm-capabilities {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  .crm-home-access {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 420px) {
+  .crm-preview-stage {
+    padding-right: 0.45rem;
+    font-size: 0.69rem;
+  }
+
+  .crm-preview-stage + .crm-preview-stage {
+    padding-left: 0.45rem;
+  }
+
+  .crm-access-actions {
+    width: 100%;
+  }
+
+  .crm-access-actions .btn {
+    flex: 1;
+  }
+}
